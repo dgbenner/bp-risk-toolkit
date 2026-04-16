@@ -75,7 +75,7 @@ export default function DetailPanel({ phase, systems, onClose }) {
                               color: isBP ? '#007F00' : '#FF9900',
                             }}
                           >
-                            {isBP ? 'BP' : 'ACME'}
+                            {isBP ? 'BP' : 'VALARIS'}
                           </span>
                         </div>
                       </div>

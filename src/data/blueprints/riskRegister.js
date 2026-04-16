@@ -51,7 +51,7 @@ export const riskRegister = {
       timeEstimate: '1–2 days',
       actions: [
         'Categorize risk by type and severity',
-        'Assign risk owner (BP or ACME)',
+        'Assign risk owner (BP or Valaris)',
         'Set resolution timeline',
         'Link to relevant bowtie/barrier',
       ],

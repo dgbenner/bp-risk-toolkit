@@ -1,15 +1,15 @@
 export const selfVerification = {
   id: 'self-verification',
-  title: 'Self Verification & Oversight',
+  title: 'Self Verification + Oversight',
   subtitle: 'Continuous Operational Safety Monitoring',
   primaryUser: 'wsl',
   description:
-    'Ongoing shift-based safety monitoring during live well operations. Unlike the other tools, SV&O runs as a continuous cycle rather than a linear process.',
+    'Ongoing shift-based safety monitoring during live well operations. Unlike the other tools, Self Verification + Oversight runs as a continuous cycle rather than a linear process.',
   sourceLabel: 'Informed synthesis',
   sources: [],
   systems: [
     { id: 'youreka', name: 'Youreka', description: 'Salesforce-based field inspection platform' },
-    { id: 'svo-app', name: 'SV&O Checklist App', description: 'Mobile checklist for shift-based verification' },
+    { id: 'svo-app', name: 'Self Verification + Oversight Checklist App', description: 'Mobile checklist for shift-based verification' },
     { id: 'power-bi', name: 'Power BI', description: 'Dashboards for shift reporting and trends' },
   ],
   phases: [
@@ -24,7 +24,7 @@ export const selfVerification = {
         'Pre-tower meeting with incoming crew',
         'Review handover notes from previous shift',
         'Confirm active risks and open items',
-        'Load SV&O checklist for shift',
+        'Load Self Verification + Oversight checklist for shift',
       ],
       output: [
         { type: 'checklist', label: 'CHK / SHIFT CHECKLIST LOADED' },
@@ -55,7 +55,7 @@ export const selfVerification = {
       actions: [
         'Monitor live well operations',
         'Conduct walkdowns and inspections',
-        'Complete SV&O checklist items',
+        'Complete Self Verification + Oversight checklist items',
         'Engage crew in safety conversations',
       ],
       output: [
@@ -71,7 +71,7 @@ export const selfVerification = {
       ],
       supportProcesses: {
         employee: ['Rig crew participates in safety conversations'],
-        technology: ['Youreka real-time logging', 'SV&O checklist tracking'],
+        technology: ['Youreka real-time logging', 'Self Verification + Oversight checklist tracking'],
       },
       systemsUsed: ['youreka', 'svo-app'],
       activeRoles: ['wsl', 'wellCrew', 'wellSiteManager'],
@@ -123,7 +123,7 @@ export const selfVerification = {
         'Generate shift report',
       ],
       output: [
-        { type: 'checklist', label: 'CHK / COMPLETED SV&O CHECKLIST' },
+        { type: 'checklist', label: 'CHK / COMPLETED Self Verification + Oversight CHECKLIST' },
         { type: 'report', label: 'RPT / SHIFT REPORT' },
         { type: 'integration', label: 'INT / OPEN WELLS REPORT' },
       ],
