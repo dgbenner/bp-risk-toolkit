@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+import bpHorizontal from '../assets/logos/bp-horizontal.png'
+import valarisLogo from '../assets/logos/valaris.jpg'
 
 export default function BlueprintCard({ blueprint, index }) {
   return (
@@ -22,33 +24,41 @@ export default function BlueprintCard({ blueprint, index }) {
         {/* Top bar */}
         <div className="h-[3px] bg-bp-green group-hover:bg-bp-light-green transition-colors" />
 
-        <div className="px-6 pt-8 pb-6 flex-1">
-          {/* Title with breathing room */}
-          <h3 className="text-xl font-light text-bp-dark-green tracking-wide pt-2 pb-5">
+        <div className="px-6 pt-6 pb-6 flex-1">
+          {/* Org logos — top left */}
+          <div className="flex items-center gap-3 mb-4 h-16">
+            {blueprint.orgs.includes('bp') && (
+              <img src={bpHorizontal} alt="BP" className="h-16 object-contain" />
+            )}
+            {blueprint.orgs.includes('valaris') && (
+              <img src={valarisLogo} alt="Valaris" className="h-14 object-contain" />
+            )}
+          </div>
+
+          {/* Title */}
+          <h3 className="text-xl font-light text-bp-dark-green tracking-wide pb-4">
             {blueprint.title}
           </h3>
 
-          {/* Metadata readouts — phase grouped with the rest */}
-          <div className="space-y-2 mb-5">
-            <div className="font-mono text-[12px] tracking-[0.1em] text-bp-silver">
-              PHASE: <span className="text-bp-dark-grey">{blueprint.phase.toUpperCase()}</span>
-            </div>
-            <div className="font-mono text-[12px] tracking-[0.1em] text-bp-silver">
-              USER: <span className="text-bp-dark-grey">{blueprint.primaryUser.toUpperCase()}</span>
-            </div>
-            <div className="font-mono text-[12px] tracking-[0.1em] text-bp-silver">
-              LOC: <span className="text-bp-dark-grey">{blueprint.setting.toUpperCase()}</span>
-            </div>
-            <div className="font-mono text-[12px] tracking-[0.1em] text-bp-silver">
-              CADENCE: <span className="text-bp-dark-grey">{blueprint.cadence.toUpperCase()}</span>
-            </div>
+          {/* Metadata readouts */}
+          <div className="space-y-2">
+            {[
+              ['PHASE', blueprint.phase],
+              ['USER', blueprint.primaryUser],
+              ['LOC', blueprint.setting],
+              ['CADENCE', blueprint.cadence],
+            ].map(([label, value]) => (
+              <div key={label} className="flex font-mono text-[12px] tracking-[0.1em]">
+                <span className="text-bp-silver w-[72px] flex-shrink-0">{label}</span>
+                <span className="text-bp-dark-grey">{value.toUpperCase()}</span>
+              </div>
+            ))}
           </div>
-
         </div>
 
-        {/* Bottom hover indicator */}
-        <div className="h-9 flex items-center justify-center border-t border-gray-100 bg-bp-pale-grey/50 opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="font-mono text-[11px] tracking-[0.15em] uppercase text-bp-green">
+        {/* Bottom CTA */}
+        <div className="h-9 flex items-center justify-center border-t border-gray-100 bg-bp-pale-grey/50 group-hover:bg-bp-green/10 transition-colors">
+          <span className="font-mono text-[11px] tracking-[0.15em] uppercase text-bp-silver group-hover:text-bp-green transition-colors">
             VIEW BLUEPRINT →
           </span>
         </div>

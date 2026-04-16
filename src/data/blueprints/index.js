@@ -13,6 +13,7 @@ export const blueprintList = [
     setting: 'Onshore + Offshore',
     cadence: 'Periodic',
     sourceLabel: 'Built from stakeholder research',
+    orgs: ['bp'],
     order: 2,
   },
   {
@@ -24,17 +25,19 @@ export const blueprintList = [
     setting: 'Onshore',
     cadence: 'Approval-gated',
     sourceLabel: 'Informed synthesis',
+    orgs: ['bp'],
     order: 1,
   },
   {
     id: 'self-verification',
-    title: 'Self Verification + Oversight',
+    title: 'Self Verification',
     subtitle: 'Continuous Safety Monitoring',
     phase: 'Continuous',
     primaryUser: 'Well Site Leader',
     setting: 'Offshore',
     cadence: 'Daily',
     sourceLabel: 'Informed synthesis',
+    orgs: ['valaris'],
     order: 3,
   },
   {
@@ -46,6 +49,7 @@ export const blueprintList = [
     setting: 'Onshore',
     cadence: 'Ongoing',
     sourceLabel: 'Informed synthesis',
+    orgs: ['bp', 'valaris'],
     order: 4,
   },
 ]

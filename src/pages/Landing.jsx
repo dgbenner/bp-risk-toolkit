@@ -295,18 +295,12 @@ export default function Landing() {
           Service Blueprints
         </motion.h2>
 
-        <div className="grid grid-cols-4 gap-5">
-          {sorted.map((bp, i) => (
-            <BlueprintCard key={bp.id} blueprint={bp} index={i} />
-          ))}
-        </div>
-
         {/* Progressive triangle + label */}
         <motion.div
-          className="mt-6 relative"
+          className="mb-1.5 relative"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1, duration: 0.8 }}
+          transition={{ delay: 0.6, duration: 0.8 }}
         >
           <svg
             viewBox="0 0 1000 40"
@@ -319,12 +313,18 @@ export default function Landing() {
               opacity="0.12"
             />
           </svg>
-          <div className="text-center mt-1">
+          <div className="text-center mt-0.5">
             <span className="font-mono text-[10px] tracking-[0.15em] uppercase text-bp-dark-grey">
               SEQUENTIAL DEPENDENCY — EACH TOOL FEEDS THE NEXT
             </span>
           </div>
         </motion.div>
+
+        <div className="grid grid-cols-4 gap-5">
+          {sorted.map((bp, i) => (
+            <BlueprintCard key={bp.id} blueprint={bp} index={i} />
+          ))}
+        </div>
       </section>
 
       {/* Footer — Org hierarchy + dates */}
