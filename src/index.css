@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* ── BP Design Tokens ── */
+@theme {
+  --color-bp-green: #007F00;
+  --color-bp-light-green: #99CC00;
+  --color-bp-yellow: #FFE600;
+  --color-bp-dark-green: #004F00;
+  --color-bp-yellow-orange: #FF9900;
+  --color-bp-dark-blue: #000099;
+  --color-bp-silver: #999999;
+  --color-bp-dark-grey: #666666;
+  --color-bp-pale-grey: #F7F7F7;
+  --color-bp-pale-green: #BEDBBF;
+
+  --font-sans: 'DM Sans', 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+}
+
+/* ── Base ── */
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-bp-dark-grey);
+  background: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── HUD Typography Utilities ── */
+.hud-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.hud-bracket {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hud-readout {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-bp-silver);
+}
+
+/* ── Dot Grid Background (subtle, for non-content areas) ── */
+.dot-grid {
+  background-image: radial-gradient(circle, var(--color-bp-silver) 0.5px, transparent 0.5px);
+  background-size: 20px 20px;
+  opacity: 0.04;
+}
+
+/* ── Crosshair Decorative Mark ── */
+.crosshair::before {
+  content: '+';
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-bp-silver);
+  opacity: 0.4;
+}

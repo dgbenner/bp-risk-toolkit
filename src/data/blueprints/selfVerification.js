@@ -1,0 +1,176 @@
+export const selfVerification = {
+  id: 'self-verification',
+  title: 'Self Verification & Oversight',
+  subtitle: 'Continuous Operational Safety Monitoring',
+  primaryUser: 'wsl',
+  description:
+    'Ongoing shift-based safety monitoring during live well operations. Unlike the other tools, SV&O runs as a continuous cycle rather than a linear process.',
+  sourceLabel: 'Informed synthesis',
+  sources: [],
+  systems: [
+    { id: 'youreka', name: 'Youreka', description: 'Salesforce-based field inspection platform' },
+    { id: 'svo-app', name: 'SV&O Checklist App', description: 'Mobile checklist for shift-based verification' },
+    { id: 'power-bi', name: 'Power BI', description: 'Dashboards for shift reporting and trends' },
+  ],
+  phases: [
+    {
+      id: 'shift-start',
+      index: 1,
+      name: 'Shift Start',
+      location: 'OFFSHORE / ON RIG',
+      appState: 'ACTIVE SHIFT',
+      timeEstimate: '30 min',
+      actions: [
+        'Pre-tower meeting with incoming crew',
+        'Review handover notes from previous shift',
+        'Confirm active risks and open items',
+        'Load SV&O checklist for shift',
+      ],
+      output: [
+        { type: 'checklist', label: 'CHK / SHIFT CHECKLIST LOADED' },
+      ],
+      frontstage: [
+        'Pre-tower meeting with rig crew',
+        'Handover briefing from outgoing WSL',
+      ],
+      backstage: [
+        'Youreka loads shift-specific checklists',
+        'Open items carried forward from previous shift',
+      ],
+      supportProcesses: {
+        employee: ['Outgoing WSL provides handover', 'Rig crew attends briefing'],
+        technology: ['Youreka checklist loading', 'Previous shift data sync'],
+      },
+      systemsUsed: ['youreka', 'svo-app'],
+      activeRoles: ['wsl', 'wellCrew'],
+      notes: 'This is a cyclical process — Shift Start follows the previous Shift Handover.',
+    },
+    {
+      id: 'active-operations',
+      index: 2,
+      name: 'Active Operations',
+      location: 'OFFSHORE / ON RIG',
+      appState: 'MONITORING',
+      timeEstimate: '8–12 hours',
+      actions: [
+        'Monitor live well operations',
+        'Conduct walkdowns and inspections',
+        'Complete SV&O checklist items',
+        'Engage crew in safety conversations',
+      ],
+      output: [
+        { type: 'checklist', label: 'CHK / IN-PROGRESS CHECKLIST' },
+      ],
+      frontstage: [
+        'Visible safety walkdowns on rig floor',
+        'Crew conversations about barriers and risks',
+      ],
+      backstage: [
+        'Checklist items recorded in Youreka',
+        'Observations logged in real-time',
+      ],
+      supportProcesses: {
+        employee: ['Rig crew participates in safety conversations'],
+        technology: ['Youreka real-time logging', 'SV&O checklist tracking'],
+      },
+      systemsUsed: ['youreka', 'svo-app'],
+      activeRoles: ['wsl', 'wellCrew', 'wellSiteManager'],
+      notes: '',
+    },
+    {
+      id: 'risk-identification',
+      index: 3,
+      name: 'Risk Identification',
+      location: 'OFFSHORE / ON RIG',
+      appState: 'ALERT',
+      timeEstimate: 'As needed',
+      actions: [
+        'Identify new or escalating risks during operations',
+        'Document risk observations',
+        'Escalate critical risks to Well Site Manager',
+        'Log incident report if triggered',
+      ],
+      output: [
+        { type: 'report', label: 'RPT / RISK OBSERVATION' },
+        { type: 'report', label: 'RPT / INCIDENT REPORT (IF TRIGGERED)' },
+      ],
+      frontstage: [
+        'Risk conversation with crew at point of work',
+        'Escalation to Well Site Manager if critical',
+      ],
+      backstage: [
+        'Youreka captures risk observation details',
+        'Incident report triggers notification chain',
+      ],
+      supportProcesses: {
+        employee: ['Well Site Manager receives escalations', 'Crew provides on-ground detail'],
+        technology: ['Youreka risk capture', 'Notification system for incidents'],
+      },
+      systemsUsed: ['youreka'],
+      activeRoles: ['wsl', 'wellSiteManager'],
+      notes: 'This phase triggers on-demand — it can happen at any point during Active Operations.',
+    },
+    {
+      id: 'documentation',
+      index: 4,
+      name: 'Documentation',
+      location: 'OFFSHORE / ON RIG',
+      appState: 'DOCUMENTING',
+      timeEstimate: '1–2 hours',
+      actions: [
+        'Complete all open checklist items',
+        'Finalize shift observations and notes',
+        'Generate shift report',
+      ],
+      output: [
+        { type: 'checklist', label: 'CHK / COMPLETED SV&O CHECKLIST' },
+        { type: 'report', label: 'RPT / SHIFT REPORT' },
+        { type: 'integration', label: 'INT / OPEN WELLS REPORT' },
+      ],
+      frontstage: [],
+      backstage: [
+        'Youreka compiles shift data into report',
+        'Open Wells report updated with shift findings',
+        'Power BI dashboard refreshed',
+      ],
+      supportProcesses: {
+        employee: [],
+        technology: ['Youreka report generation', 'Power BI refresh', 'Open Wells integration'],
+      },
+      systemsUsed: ['youreka', 'power-bi'],
+      activeRoles: ['wsl'],
+      notes: '',
+    },
+    {
+      id: 'shift-handover',
+      index: 5,
+      name: 'Shift Handover',
+      location: 'OFFSHORE / ON RIG',
+      appState: 'HANDOVER',
+      timeEstimate: '30 min',
+      actions: [
+        'Brief incoming WSL on shift findings',
+        'Transfer open items and risks',
+        'Complete handover in system',
+      ],
+      output: [
+        { type: 'doc', label: 'DOC / HANDOVER NOTES' },
+      ],
+      frontstage: [
+        'Face-to-face handover with incoming WSL',
+        'Joint review of open risks and items',
+      ],
+      backstage: [
+        'Handover record created in Youreka',
+        'Open items transferred to next shift',
+      ],
+      supportProcesses: {
+        employee: ['Incoming WSL receives briefing'],
+        technology: ['Youreka handover record', 'Item transfer to next shift'],
+      },
+      systemsUsed: ['youreka', 'svo-app'],
+      activeRoles: ['wsl'],
+      notes: 'Cycle restarts — the next WSL begins at Shift Start. This is a continuous loop during operations.',
+    },
+  ],
+}
