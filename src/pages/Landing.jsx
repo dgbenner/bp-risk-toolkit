@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { blueprintList } from '../data/blueprints'
 import BlueprintCard from '../components/BlueprintCard'
-import OilRigIllustration from '../components/OilRigIllustration'
+import Rig3D from '../components/Rig3D'
 import SystemLogo from '../components/SystemLogos'
 import bpHelios from '../assets/logos/bp-helios.png'
 import bpHorizontal from '../assets/logos/bp-horizontal.png'
@@ -46,9 +46,12 @@ function PlatformEcosystem() {
       transition={{ delay: 0.8 }}
       ref={containerRef}
     >
-      <div className="font-mono text-[11px] tracking-[0.15em] uppercase text-bp-silver mb-4">
-        PLATFORM ECOSYSTEM
-      </div>
+      <h3
+        className="text-2xl font-light text-bp-dark-green tracking-wide mb-4"
+        style={{ textShadow: '0 0 10px rgba(255,255,255,1), 0 0 20px rgba(255,255,255,1), 0 0 40px rgba(255,255,255,1), 0 0 70px rgba(255,255,255,1), 0 0 110px rgba(255,255,255,0.95)' }}
+      >
+        Platform Ecosystem
+      </h3>
       <div className="flex flex-wrap gap-3 relative max-w-md">
         {systems.map(sys => {
           const isActive = activeSystem === sys.name
@@ -57,10 +60,10 @@ function PlatformEcosystem() {
             <div key={sys.name} className="relative">
               <button
                 onClick={() => setActiveSystem(isActive ? null : sys.name)}
-                className={`flex items-center gap-1.5 px-2.5 py-2 border transition-all duration-200 cursor-pointer relative ${
+                className={`flex items-center gap-1.5 px-2.5 py-2 border transition-all duration-200 cursor-pointer relative shadow-[0_0_28px_rgba(137,207,240,0.3)] ${
                   isActive
-                    ? 'bg-white border-bp-green shadow-sm'
-                    : 'bg-bp-pale-grey border-gray-200 hover:border-bp-green/50 hover:bg-white'
+                    ? 'bg-white border-bp-green'
+                    : 'bg-white border-gray-200 hover:border-bp-green/50'
                 }`}
               >
                 <SystemLogo name={sys.name} className="w-5 h-5" />
@@ -70,7 +73,7 @@ function PlatformEcosystem() {
                 <svg
                   viewBox="0 0 6 6"
                   className={`w-[6px] h-[6px] absolute bottom-0 right-0 transition-colors duration-200 ${
-                    isActive ? 'text-bp-green' : 'text-bp-green/40'
+                    isActive ? 'text-bp-green' : 'text-bp-green'
                   }`}
                 >
                   <path d="M6 0V6H0z" fill="currentColor" />
@@ -80,7 +83,7 @@ function PlatformEcosystem() {
               <AnimatePresence>
                 {isActive && (
                   <motion.div
-                    className={`absolute top-full mt-2 w-64 bg-white border border-bp-green/30 shadow-lg z-20 p-4 ${
+                    className={`absolute top-full mt-2 w-64 bg-white border border-bp-green/30 shadow-[0_0_36px_rgba(137,207,240,0.3)] z-20 p-4 ${
                       toRight ? 'left-0' : 'right-0'
                     }`}
                     initial={{ opacity: 0, y: -4 }}
@@ -148,31 +151,41 @@ export default function Landing() {
       {/* Dot grid background layer */}
       <div className="fixed inset-0 dot-grid pointer-events-none" />
 
-      {/* Hero */}
+      {/* Hero — full-width wrapper so the 3D canvas reaches the browser edges */}
+      <div className="relative">
+        {/* Rig 3D spans the full viewport width behind the content */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <Rig3D className="w-full h-full" />
+        </div>
       <header className="relative max-w-6xl mx-auto px-8 pt-12 pb-14">
         {/* Top bar — BP logo + WDW label with tooltip */}
         <motion.div
-          className="flex items-center gap-5 mb-14"
+          className="flex items-center gap-5 mb-14 relative z-30 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8 }}
         >
-          <img src={bpHorizontal} alt="BP" className="h-20 object-contain" />
+          <img
+            src={bpHorizontal}
+            alt="BP"
+            className="h-20 object-contain"
+            style={{ filter: 'drop-shadow(0 0 24px rgba(255,255,255,0.55)) drop-shadow(0 0 10px rgba(255,255,255,0.35))' }}
+          />
           <div className="h-6 w-px bg-gray-200" />
-          <div className="relative -ml-2" ref={wdwRef}>
+          <div className="relative" ref={wdwRef}>
             <button
               onClick={() => setShowWdw(!showWdw)}
-              className={`font-mono text-[12px] tracking-[0.15em] uppercase cursor-pointer pl-1.5 pr-3 py-1.5 border transition-all duration-200 relative ${
+              className={`flex items-center font-mono text-[12px] tracking-[0.15em] uppercase cursor-pointer px-3 py-2 border transition-all duration-200 relative shadow-[0_0_32px_rgba(137,207,240,0.3)] ${
                 showWdw
-                  ? 'text-bp-dark-grey border-bp-silver/40 bg-white shadow-sm'
-                  : 'text-bp-silver border-transparent hover:border-gray-200 hover:bg-bp-pale-grey'
+                  ? 'text-bp-dark-grey border-bp-silver/60 bg-white'
+                  : 'text-bp-dark-grey bg-white border-gray-200 hover:border-bp-silver/50'
               }`}
             >
               WELL DELIVERY WORKBENCH
               <svg
                 viewBox="0 0 6 6"
                 className={`w-[6px] h-[6px] absolute bottom-0 right-0 transition-colors duration-200 ${
-                  showWdw ? 'text-bp-silver' : 'text-bp-silver/40'
+                  showWdw ? 'text-bp-green' : 'text-bp-green'
                 }`}
               >
                 <path d="M6 0V6H0z" fill="currentColor" />
@@ -182,7 +195,7 @@ export default function Landing() {
             <AnimatePresence>
               {showWdw && (
                 <motion.div
-                  className="absolute left-0 top-full mt-2 w-72 bg-white border border-bp-silver/30 shadow-lg z-20 p-4"
+                  className="absolute left-0 top-full mt-2 w-72 bg-white border border-bp-silver/30 shadow-[0_0_36px_rgba(137,207,240,0.3)] z-20 p-4"
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
@@ -212,10 +225,11 @@ export default function Landing() {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-[1fr_440px] gap-12 items-start">
+        <div className="grid grid-cols-[1fr_440px] gap-12 items-start relative z-10 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
           <div>
             <motion.h1
               className="text-6xl font-light text-bp-dark-green tracking-wide leading-tight mb-5"
+              style={{ textShadow: '0 0 36px rgba(255,255,255,0.5), 0 0 16px rgba(255,255,255,0.35)' }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.8 }}
@@ -225,6 +239,7 @@ export default function Landing() {
 
             <motion.p
               className="text-xl text-bp-dark-grey font-light leading-relaxed max-w-lg mb-8"
+              style={{ textShadow: '0 0 10px rgba(255,255,255,0.85), 0 0 20px rgba(255,255,255,0.5), 0 0 35px rgba(255,255,255,0.25)' }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.8 }}
@@ -234,47 +249,15 @@ export default function Landing() {
               continuous monitoring to resolution.
             </motion.p>
 
-            {/* Org legend with logos */}
-            <motion.div
-              className="flex items-center gap-8 mb-10"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-            >
-              <div className="flex items-center gap-1.5">
-                <img src={bpHelios} alt="BP" className="w-6 h-6 object-contain" />
-                <div>
-                  <span className="font-mono text-[12px] tracking-[0.1em] uppercase text-bp-green font-medium">
-                    BP
-                  </span>
-                  <span className="font-mono text-[11px] tracking-[0.08em] uppercase text-bp-dark-grey ml-2">
-                    — OPERATOR
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <img src={valarisMark} alt="Valaris" className="h-6 object-contain" />
-                <div>
-                  <span className="font-mono text-[12px] tracking-[0.1em] uppercase text-bp-yellow-orange font-medium">
-                    VALARIS
-                  </span>
-                  <span className="font-mono text-[11px] tracking-[0.08em] uppercase text-bp-dark-grey ml-2">
-                    — RIG CONTRACTOR
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-
             {/* Platform Ecosystem with tooltips */}
             <PlatformEcosystem />
           </div>
 
-          {/* Oil rig illustration */}
-          <div className="relative -mt-[150px]">
-            <OilRigIllustration className="w-full h-auto" />
-          </div>
+          {/* Right column reserved for rig model (rendered as absolute bg above) */}
+          <div />
         </div>
       </header>
+      </div>
 
       {/* Divider */}
       <div className="max-w-6xl mx-auto px-8">
@@ -286,14 +269,38 @@ export default function Landing() {
 
       {/* Blueprint Cards */}
       <section className="max-w-6xl mx-auto px-8 py-16">
-        <motion.h2
-          className="text-4xl font-light text-bp-dark-green tracking-wide mb-10"
+        <motion.div
+          className="flex items-end justify-between mb-10"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.8 }}
         >
-          Service Blueprints
-        </motion.h2>
+          <h2 className="text-4xl font-light text-bp-dark-green tracking-wide">
+            Service Blueprints
+          </h2>
+
+          {/* Org legend — sits on the right, in line with the heading */}
+          <div className="flex items-center gap-6 pb-2">
+            <div className="flex items-center gap-1.5">
+              <img src={bpHelios} alt="BP" className="w-5 h-5 object-contain" />
+              <span className="font-mono text-[11px] tracking-[0.1em] uppercase text-bp-green font-medium">
+                BP
+              </span>
+              <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-bp-dark-grey">
+                — OPERATOR
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <img src={valarisMark} alt="Valaris" className="h-5 object-contain" />
+              <span className="font-mono text-[11px] tracking-[0.1em] uppercase text-bp-yellow-orange font-medium">
+                VALARIS
+              </span>
+              <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-bp-dark-grey">
+                — RIG CONTRACTOR
+              </span>
+            </div>
+          </div>
+        </motion.div>
 
         {/* Progressive triangle + label */}
         <motion.div

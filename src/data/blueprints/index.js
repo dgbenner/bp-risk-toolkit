@@ -10,11 +10,12 @@ export const blueprintList = [
     subtitle: 'Pre-Contract Offshore Verification',
     phase: 'Pre-Contract',
     primaryUser: 'Rig Verifier',
-    setting: 'Onshore + Offshore',
+    setting: 'On + Offshore',
     cadence: 'Periodic',
     sourceLabel: 'Built from stakeholder research',
     orgs: ['bp'],
     order: 2,
+    active: true,
   },
   {
     id: 'risk-assessment',
@@ -27,6 +28,7 @@ export const blueprintList = [
     sourceLabel: 'Informed synthesis',
     orgs: ['bp'],
     order: 1,
+    active: false,
   },
   {
     id: 'self-verification',
@@ -39,6 +41,7 @@ export const blueprintList = [
     sourceLabel: 'Informed synthesis',
     orgs: ['valaris'],
     order: 3,
+    active: false,
   },
   {
     id: 'risk-register',
@@ -51,5 +54,6 @@ export const blueprintList = [
     sourceLabel: 'Informed synthesis',
     orgs: ['bp', 'valaris'],
     order: 4,
+    active: false,
   },
 ]
