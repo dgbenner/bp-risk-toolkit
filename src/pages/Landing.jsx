@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { blueprintList } from '../data/blueprints'
+import { platformEcosystem as systems } from '../data/platformEcosystem'
 import BlueprintCard from '../components/BlueprintCard'
 import Rig3D from '../components/Rig3D'
 import SystemLogo from '../components/SystemLogos'
@@ -11,17 +12,8 @@ import valarisMark from '../assets/logos/valaris-mark.png'
 
 const sorted = [...blueprintList].sort((a, b) => a.order - b.order)
 
-const systems = [
-  { name: 'Salesforce', label: 'SALESFORCE', bullets: ['Master platform across all four services', 'Workflow routing + approval chains', 'Email alerts + notifications', 'Risk Register data store'] },
-  { name: 'RVRT', label: 'RVRT', bullets: ['Rig Verification Reporting Tool', 'Offline-capable browser app', 'Used on-rig during field verification', 'Syncs to Salesforce on reconnect'] },
-  { name: 'Youreka', label: 'YOUREKA', bullets: ['Salesforce-based inspection platform', 'Self Verification + Oversight shift checklists', 'Safety walkdown documentation', 'Mobile-first, used offshore'] },
-  { name: 'Power BI', label: 'POWER BI', bullets: ['Dashboards + reporting layer', 'Pulls from all four services', 'Leadership risk visibility', 'Trend analysis + status tracking'] },
-  { name: 'REST API', label: 'REST API', bullets: ['Custom integration layer', 'Generates Terms of Reference docs', 'Connects verification workflow to Salesforce'] },
-  { name: 'Quip', label: 'QUIP', bullets: ['Document collaboration', 'TSV template creation', 'Shared across verification team'] },
-]
-
 // All tooltips open to the right (left-aligned) for consistency
-const opensRight = new Set(['Salesforce', 'RVRT', 'Youreka', 'Power BI', 'REST API', 'Quip'])
+const opensRight = new Set(systems.map(s => s.name))
 
 function PlatformEcosystem() {
   const [activeSystem, setActiveSystem] = useState(null)
@@ -40,7 +32,7 @@ function PlatformEcosystem() {
 
   return (
     <motion.div
-      className="pt-7 border-t border-gray-100"
+      className="pt-7"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.8 }}
@@ -293,7 +285,7 @@ export default function Landing() {
             <div className="flex items-center gap-1.5">
               <img src={valarisMark} alt="Valaris" className="h-5 object-contain" />
               <span className="font-mono text-[11px] tracking-[0.1em] uppercase text-bp-yellow-orange font-medium">
-                VALARIS
+                VALARIS (EXAMPLE)
               </span>
               <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-bp-dark-grey">
                 — RIG CONTRACTOR

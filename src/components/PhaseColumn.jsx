@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { roles } from '../data/roles'
 import OutputIcon from './OutputIcon'
+import SystemLogo from './SystemLogos'
 
 const swimlaneRows = [
   { key: 'location', label: 'LOCATION' },
@@ -193,12 +194,14 @@ function renderRowContent(key, phase, systems) {
         <div className="flex flex-wrap gap-1">
           {phase.systemsUsed.map(sysId => {
             const sys = systems?.find(s => s.id === sysId)
+            const name = sys?.name || sysId
             return (
               <span
                 key={sysId}
-                className="px-1.5 py-0.5 bg-bp-dark-blue/5 font-mono text-[9px] tracking-[0.08em] text-bp-dark-blue border border-bp-dark-blue/15"
+                className="flex items-center gap-1 px-1.5 py-0.5 bg-white border border-gray-200 font-mono text-[9px] tracking-[0.04em] text-bp-dark-grey uppercase"
               >
-                {sys?.name || sysId}
+                <SystemLogo name={name} className="w-3 h-3" />
+                {name}
               </span>
             )
           })}

@@ -51,10 +51,10 @@ export function YourekaLogo({ className = 'w-5 h-5' }) {
 export function RESTAPILogo({ className = 'w-5 h-5' }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none">
-      {/* API connection icon */}
-      <path d="M8 6l-4 6 4 6" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M16 6l4 6-4 6" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1="14" y1="4" x2="10" y2="20" stroke="#666" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Code-bracket API glyph in BP dark blue */}
+      <path d="M8 6l-4 6 4 6" stroke="#000099" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16 6l4 6-4 6" stroke="#000099" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="14" y1="4" x2="10" y2="20" stroke="#000099" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }
@@ -77,6 +77,7 @@ const systemLogoMap = {
   Youreka: YourekaLogo,
   'Power BI': PowerBILogo,
   'REST API': RESTAPILogo,
+  'Custom REST API': RESTAPILogo, // alias — same glyph
   Quip: QuipLogo,
 }
 

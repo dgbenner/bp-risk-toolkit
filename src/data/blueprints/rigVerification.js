@@ -1,14 +1,17 @@
 export const rigVerification = {
   id: 'rig-verification',
   title: 'Rig Verification',
-  subtitle: 'Pre-Contract Offshore Rig Verification',
+  subtitle: 'Pre-Contract Rig Assurance',
+  tagline: 'We verify every rig meets our safety standards before we sign the contract with Valaris.',
+  actionsLabel: 'Rig Verifier Actions',
+  actionsDescription: 'Journey of the rig verifier',
   primaryUser: 'arthur',
   description:
     'Creating, preparing, conducting and completing a Pre-Contract, Offshore Rig Verification.',
-  sourceLabel: 'Built from stakeholder research',
+  sourceLabel: 'Research Sources',
   sources: [
-    'Alex Mowat — Product Owner (2 interviews)',
-    'Subin Nair — RV Salesforce Developer (2 interviews)',
+    'Alex Mowat — Lead Rig Verifier, Aberdeen, UK (2 interviews)',
+    'Subin Nair — Rig Verification Developer, London, UK (2 interviews)',
   ],
   systems: [
     { id: 'salesforce', name: 'Salesforce', description: 'Master controller — most RV functions, SF email alerts' },
