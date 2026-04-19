@@ -117,6 +117,19 @@ const HELI_DESCENT_DURATION = 31           // lands at cycle 37
 const HELI_FADE_OUT_START   = 65           // begins fade-out when deconstruction starts
 const HELI_HIDE             = 70           // gone at cycle restart
 
+// Drag interaction during HOLD
+const HELI_LANDING_TIME     = HELI_FLY_IN_START + HELI_DESCENT_DURATION // cycle 37
+const HELI_DRAG_MAX_SPEED   = 1.5          // world units per second — ~2× descent average, calm pace
+const HELI_YAW_SPEED        = 1.8          // radians per second — how fast heli turns toward a new heading
+const HELI_DEFAULT_YAW      = Math.PI      // default model orientation
+const HELI_FLY_OFF_HEIGHT   = 25           // how far heli rises during fly-off (cycle 65→70)
+
+// Collision boundaries (all in world XZ plane; Y is unaffected).
+// Slippery projection — heli pushed to boundary, slides along tangentially.
+const RIG_EXCLUSION_CENTER  = [RIG_POSITION[0], RIG_POSITION[2]] // (-0.8, 0)
+const RIG_EXCLUSION_RADIUS  = 7
+const SCENE_OUTER_RADIUS    = 40           // heli can't drift past this far from scene center
+
 function useHelicopterModel() {
   const baseUrl = import.meta.env.BASE_URL || '/'
   const url = `${baseUrl}helicopter_final.glb`.replace(/\/+/g, '/')
@@ -182,9 +195,92 @@ function HelipadMarker({ position }) {
 
 function Helicopter({ padPosition }) {
   const { scene } = useHelicopterModel()
+  const { camera, gl } = useThree()
   const groupRef = useRef()
   const mainRotorRef = useRef(null)
   const tailRotorRef = useRef(null)
+
+  // Drag state (all refs to avoid re-renders; useFrame reads/writes these).
+  const dragStateRef = useRef({
+    isDragging: false,
+    target: null,                    // { x, z } world coords mouse points at
+    pos: { x: padPosition[0], z: padPosition[2] }, // current heli XZ at pad height
+    flyOffStarted: false,
+    flyOffStartPos: { x: 0, y: 0, z: 0 },
+  })
+  const currentCycleRef = useRef(0)
+
+  // Reusable math objects — avoid allocation per-frame.
+  const padPlane = useMemo(
+    () => new THREE.Plane(new THREE.Vector3(0, 1, 0), -padPosition[1]),
+    [padPosition],
+  )
+  const raycaster = useMemo(() => new THREE.Raycaster(), [])
+  const intersection = useMemo(() => new THREE.Vector3(), [])
+  const ndc = useMemo(() => new THREE.Vector2(), [])
+
+  // Compute world-space target on the pad plane from screen pixel coords.
+  const computeTarget = (clientX, clientY) => {
+    const rect = gl.domElement.getBoundingClientRect()
+    ndc.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    )
+    raycaster.setFromCamera(ndc, camera)
+    if (raycaster.ray.intersectPlane(padPlane, intersection)) {
+      return { x: intersection.x, z: intersection.z }
+    }
+    return null
+  }
+
+  // Document-level pointer tracking with capture-phase listeners. Runs
+  // before any bubble-phase handler or stopPropagation, and fires even
+  // when the click lands on a DOM overlay sitting on top of the canvas.
+  useEffect(() => {
+    const canvas = gl.domElement
+    const insideCanvas = (e) => {
+      const r = canvas.getBoundingClientRect()
+      return e.clientX >= r.left && e.clientX <= r.right &&
+             e.clientY >= r.top && e.clientY <= r.bottom
+    }
+    const onDown = (e) => {
+      const cycle = currentCycleRef.current
+      if (cycle < HELI_FLY_IN_START || cycle >= PHASE_HOLD_END) return
+      if (!insideCanvas(e)) return
+      const tgt = computeTarget(e.clientX, e.clientY)
+      if (tgt) {
+        dragStateRef.current.isDragging = true
+        dragStateRef.current.target = tgt
+      }
+    }
+    const onMove = (e) => {
+      if (!dragStateRef.current.isDragging) return
+      const tgt = computeTarget(e.clientX, e.clientY)
+      if (tgt) dragStateRef.current.target = tgt
+    }
+    const onUp = () => { dragStateRef.current.isDragging = false }
+    document.addEventListener('pointerdown', onDown, true)
+    document.addEventListener('pointermove', onMove, true)
+    document.addEventListener('pointerup', onUp, true)
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true)
+      document.removeEventListener('pointermove', onMove, true)
+      document.removeEventListener('pointerup', onUp, true)
+    }
+  }, [camera, gl, padPlane])
+
+  const hasBeenControlledRef = useRef(false)
+
+  const handleHelicopterPointerDown = (e) => {
+    const cycle = currentCycleRef.current
+    // Drag window: from when the heli becomes visible until HOLD ends.
+    if (cycle < HELI_FLY_IN_START || cycle >= PHASE_HOLD_END) return
+    e.stopPropagation()
+    dragStateRef.current.isDragging = true
+    if (e.ray && e.ray.intersectPlane(padPlane, intersection)) {
+      dragStateRef.current.target = { x: intersection.x, z: intersection.z }
+    }
+  }
 
   // One-time: log the full scene graph + find rotor meshes by common naming
   const { model, materials, mainBladeSets, tailBladeSets } = useMemo(() => {
@@ -426,13 +522,123 @@ function Helicopter({ padPosition }) {
       }
     }
 
+    // Keep a shared cycle ref for pointer-event handlers (they can't read state.clock).
+    currentCycleRef.current = cycle
+
+    // When a new cycle begins (heli offscreen), clear user-control flag.
+    if (cycle < HELI_FLY_IN_START) {
+      hasBeenControlledRef.current = false
+      dragStateRef.current.isDragging = false
+      dragStateRef.current.target = null
+      dragStateRef.current.pos.x = padPosition[0]
+      dragStateRef.current.pos.z = padPosition[2]
+    }
+
     if (groupRef.current) {
       groupRef.current.visible = visible
       if (visible) {
-        // Ease-out so the helicopter decelerates as it approaches the pad.
-        const eased = easeOutCubic(pathProgress)
-        groupRef.current.position.copy(flightCurve.getPoint(eased))
-        groupRef.current.rotation.set(0, Math.PI, 0)
+        const chaseTarget = (ds) => {
+          if (!ds.isDragging || !ds.target) return
+          hasBeenControlledRef.current = true
+          const dx = ds.target.x - ds.pos.x
+          const dz = ds.target.z - ds.pos.z
+          const dist = Math.sqrt(dx * dx + dz * dz)
+          const maxMove = HELI_DRAG_MAX_SPEED * delta
+          if (dist <= maxMove) {
+            ds.pos.x = ds.target.x
+            ds.pos.z = ds.target.z
+          } else {
+            ds.pos.x += (dx / dist) * maxMove
+            ds.pos.z += (dz / dist) * maxMove
+          }
+          applyBoundaries(ds)
+        }
+
+        const applyBoundaries = (ds) => {
+          // Rig exclusion: push heli out to boundary radius.
+          let dx = ds.pos.x - RIG_EXCLUSION_CENTER[0]
+          let dz = ds.pos.z - RIG_EXCLUSION_CENTER[1]
+          let d2 = dx * dx + dz * dz
+          if (d2 < RIG_EXCLUSION_RADIUS * RIG_EXCLUSION_RADIUS) {
+            const d = Math.sqrt(d2) || 0.001
+            const f = RIG_EXCLUSION_RADIUS / d
+            ds.pos.x = RIG_EXCLUSION_CENTER[0] + dx * f
+            ds.pos.z = RIG_EXCLUSION_CENTER[1] + dz * f
+          }
+          // Scene outer: pull heli back inside the global radius.
+          dx = ds.pos.x
+          dz = ds.pos.z
+          d2 = dx * dx + dz * dz
+          if (d2 > SCENE_OUTER_RADIUS * SCENE_OUTER_RADIUS) {
+            const d = Math.sqrt(d2)
+            const f = SCENE_OUTER_RADIUS / d
+            ds.pos.x = dx * f
+            ds.pos.z = dz * f
+          }
+        }
+
+        if (cycle < HELI_LANDING_TIME) {
+          // ── Descent phase: user can steer XZ, but Y follows the natural
+          // descent curve from hover altitude down to pad.
+          const flightPos = flightCurve.getPoint(easeOutCubic(pathProgress))
+          const ds = dragStateRef.current
+          ds.flyOffStarted = false
+          chaseTarget(ds)
+          if (hasBeenControlledRef.current) {
+            groupRef.current.position.set(ds.pos.x, flightPos.y, ds.pos.z)
+          } else {
+            groupRef.current.position.copy(flightPos)
+            ds.pos.x = flightPos.x
+            ds.pos.z = flightPos.z
+          }
+        } else if (cycle < PHASE_HOLD_END) {
+          // ── HOLD phase: heli is grounded; user drag updates XZ directly.
+          const ds = dragStateRef.current
+          ds.flyOffStarted = false
+          chaseTarget(ds)
+          groupRef.current.position.set(ds.pos.x, padPosition[1], ds.pos.z)
+        } else {
+          // ── Fly-off phase: rise upward from wherever heli was at HOLD end.
+          const ds = dragStateRef.current
+          if (!ds.flyOffStarted) {
+            ds.flyOffStarted = true
+            ds.flyOffStartPos.x = ds.pos.x
+            ds.flyOffStartPos.y = padPosition[1]
+            ds.flyOffStartPos.z = ds.pos.z
+            ds.isDragging = false
+          }
+          const p = Math.min(1, (cycle - PHASE_HOLD_END) / (HELI_HIDE - PHASE_HOLD_END))
+          const eased = p * p // easeInQuad — accelerating takeoff
+          groupRef.current.position.set(
+            ds.flyOffStartPos.x,
+            ds.flyOffStartPos.y + eased * HELI_FLY_OFF_HEIGHT,
+            ds.flyOffStartPos.z,
+          )
+        }
+
+        // ── Heading (yaw): smoothly face movement direction while dragging,
+        // otherwise relax back to the default orientation.
+        {
+          const ds = dragStateRef.current
+          let desiredYaw = HELI_DEFAULT_YAW
+          if (ds.isDragging && ds.target && cycle >= HELI_FLY_IN_START && cycle < PHASE_HOLD_END) {
+            const dx = ds.target.x - ds.pos.x
+            const dz = ds.target.z - ds.pos.z
+            if (dx * dx + dz * dz > 0.04) { // min deadzone: only reorient if target is more than ~0.2 units away
+              desiredYaw = Math.atan2(dx, dz)
+            }
+          }
+          const currentYaw = groupRef.current.rotation.y
+          let yawDiff = desiredYaw - currentYaw
+          while (yawDiff > Math.PI) yawDiff -= Math.PI * 2
+          while (yawDiff < -Math.PI) yawDiff += Math.PI * 2
+          const maxYawStep = HELI_YAW_SPEED * delta
+          if (Math.abs(yawDiff) <= maxYawStep) {
+            groupRef.current.rotation.y = desiredYaw
+          } else {
+            groupRef.current.rotation.y = currentYaw + Math.sign(yawDiff) * maxYawStep
+          }
+        }
 
         // Rotor speed ramps up as the helicopter approaches the pad — sells
         // "spooling up for landing." 1x at fly-in start → ~2.8x at touchdown.
@@ -813,7 +1019,7 @@ function SkyClouds() {
   //  - "diffuseness" factor (some clouds read softer/bigger)
   //  - scale-based brightness boost ("bloom" when a cloud is puffing up)
   const clouds = useMemo(() => {
-    const count = 18
+    const count = 10
     return Array.from({ length: count }, (_, i) => ({
       // Spread initial X across the full wrap range so they're not all at the same spot
       startX: -60 + (i / count) * 120 + (Math.random() - 0.5) * 10,
@@ -937,7 +1143,7 @@ function Birds() {
 
   // Per-bird randomness baked once so they don't jitter on re-render
   const birds = useMemo(() => {
-    const count = 16
+    const count = 10
     return Array.from({ length: count }, (_, i) => ({
       angleOffset: (i / count) * Math.PI * 2 + Math.random() * 0.8,
       radius: 6.5 + Math.random() * 3.5,
@@ -1122,6 +1328,14 @@ export default function Rig3D({ className = '' }) {
 
   // Debug clock overlay (flip to true to re-enable)
   const [showClock, setShowClock] = useState(false)
+
+  // Pause rendering when the tab is hidden — 0% GPU when backgrounded.
+  const [frameloop, setFrameloop] = useState('always')
+  useEffect(() => {
+    const onVis = () => setFrameloop(document.hidden ? 'never' : 'always')
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
   const clockRef = useRef(0)
   const clockDomRef = useRef(null)
   const phaseDomRef = useRef(null)
@@ -1147,7 +1361,9 @@ export default function Rig3D({ className = '' }) {
     <div className={`relative ${className}`}>
       <Canvas
         camera={{ position: [0, -0.5, 24], fov: 50, near: 0.01, far: 2000 }}
-        gl={{ alpha: true, antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
+        dpr={[1, 1.5]}
+        frameloop={frameloop}
+        gl={{ alpha: true, antialias: false, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
         style={{ background: 'transparent' }}
       >
         <ambientLight intensity={0.6} />

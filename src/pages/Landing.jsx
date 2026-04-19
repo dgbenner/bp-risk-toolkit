@@ -39,7 +39,7 @@ function PlatformEcosystem() {
       ref={containerRef}
     >
       <h3
-        className="text-2xl font-light text-bp-dark-green tracking-wide mb-4"
+        className="text-2xl font-light text-bp-dark-green tracking-wide mb-4 select-none"
         style={{ textShadow: '0 0 10px rgba(255,255,255,1), 0 0 20px rgba(255,255,255,1), 0 0 40px rgba(255,255,255,1), 0 0 70px rgba(255,255,255,1), 0 0 110px rgba(255,255,255,0.95)' }}
       >
         Platform Ecosystem
@@ -160,7 +160,8 @@ export default function Landing() {
           <img
             src={bpHorizontal}
             alt="BP"
-            className="h-20 object-contain"
+            className="h-20 object-contain select-none"
+            draggable={false}
             style={{ filter: 'drop-shadow(0 0 24px rgba(255,255,255,0.55)) drop-shadow(0 0 10px rgba(255,255,255,0.35))' }}
           />
           <div className="h-6 w-px bg-gray-200" />
@@ -220,7 +221,7 @@ export default function Landing() {
         <div className="grid grid-cols-[1fr_440px] gap-12 items-start relative z-10 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
           <div>
             <motion.h1
-              className="text-6xl font-light text-bp-dark-green tracking-wide leading-tight mb-5"
+              className="text-6xl font-light text-bp-dark-green tracking-wide leading-tight mb-5 select-none"
               style={{ textShadow: '0 0 36px rgba(255,255,255,0.5), 0 0 16px rgba(255,255,255,0.35)' }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -230,7 +231,7 @@ export default function Landing() {
             </motion.h1>
 
             <motion.p
-              className="text-xl text-bp-dark-grey font-light leading-relaxed max-w-lg mb-8"
+              className="text-xl text-bp-dark-grey font-light leading-relaxed max-w-lg mb-8 select-none"
               style={{ textShadow: '0 0 10px rgba(255,255,255,0.85), 0 0 20px rgba(255,255,255,0.5), 0 0 35px rgba(255,255,255,0.25)' }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
