@@ -1,4 +1,5 @@
-import { Suspense, useRef, useMemo, useEffect } from 'react'
+import { Suspense, useRef, useMemo, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Canvas, useFrame, useLoader, extend, useThree } from '@react-three/fiber'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
@@ -28,24 +29,481 @@ function useRigModel() {
   })
 }
 
-const DETAIL_LEVELS = [170, 130, 90, 50, 15] // 5 steps covering sparse → dense
+const DETAIL_LEVELS = [170, 130, 90, 55, 15] // 5 stages — level 0 is silhouette-only, ramping up to full detail
+
+// Per-level build timelines (decoupled). Each level has its own start/peak/end
+// cycle time — so N can begin while N-1 is still fading up toward peak,
+// giving proper laddered overlap instead of sequential hand-offs.
+// `end: null` on L4 means it stays at full opacity through the hold phase.
+const WIRE_LEVEL_TIMELINES = [
+  { start: 0,  peak: 3,  end: 8  },   // L0
+  { start: 2,  peak: 8,  end: 12 },   // L1
+  { start: 5,  peak: 10, end: 13 },   // L2
+  { start: 10, peak: 14, end: 21 },   // L3
+  { start: 13, peak: 20, end: null }, // L4 — held
+]
+
+function levelAlphaFromTimeline(cycle, tl) {
+  if (cycle < tl.start) return 0
+  if (cycle < tl.peak) {
+    // easeOutQuart on the rise — reaches ~25% alpha within 0.5s of start
+    // and ~46% within 1s, so visibility matches the labeled start time.
+    const t = (cycle - tl.start) / (tl.peak - tl.start)
+    return easeOutQuart(t)
+  }
+  if (tl.end == null) return 1 // held
+  if (cycle < tl.end) return 1 - (cycle - tl.peak) / (tl.end - tl.peak)
+  return 0
+}
 
 // Animation phases (seconds):
 // 0–25   : wireframe builds from empty → full detail
 // 25–50  : wireframe fades out, textured solid fades in
 // 50–65  : textured solid fades out, wireframe fades back in
 // 65–80  : wireframe fades from full detail → empty
-const PHASE_WIRE_BUILD = 25
-const PHASE_SOLID_IN = 50
-const PHASE_SOLID_OUT = 65
-const PHASE_WIRE_OUT = 80
-const TOTAL_CYCLE_SECONDS = PHASE_WIRE_OUT
+// Three independent timelines run against one shared cycle clock:
+//   · Wire master opacity (when wire is visible at all)
+//   · Wire LOD progress   (which level of detail is active)
+//   · Solid opacity        (textured model fading in/out)
+// Phase markers below identify when each curve changes direction.
+// 45s BUILD, 20s HOLD, 10s DECONSTRUCTION = 75s cycle
+const PHASE_WIRE_BUILD_END    = 40  // wire master starts fading out
+const PHASE_WIRE_FADE_OUT_END = 45  // wire master reaches 0 at the hand-off to hold
+const PHASE_SOLID_IN_START    = 9
+const PHASE_SOLID_IN_END      = 30  // rig fully rendered — build complete
+const PHASE_HOLD_END          = 65  // 20s complete-state hold
+const PHASE_WIRE_REAPPEAR_END = 66  // wire ramps back in quickly (1s)
+const PHASE_SOLID_OUT_END     = 70  // solid fully dissolved (5s)
+const PHASE_CYCLE_END         = 70  // wire LOD fully reversed (5s wire takedown)
+const PAUSE_DURATION          = 3   // blank pause after everything fades, before loop restarts
+const TOTAL_CYCLE_SECONDS     = PHASE_CYCLE_END + PAUSE_DURATION
+
+// Birds fade in 7–14s.
+const BIRDS_IN_START = 7
+const BIRDS_IN_END   = 14
+
+// ────────────────────────────────────────────────────────────────
+//  Helicopter — loads GLB, auto-detects rotors, flies in at crescendo
+// ────────────────────────────────────────────────────────────────
+
+// ── Helipad + flight tuning ──────────────────────────────────────
+// Adjust HELI_HELIPAD until the red debug marker sits on your rig's pad.
+// Positive X = right, positive Y = up, positive Z = toward camera.
+const HELI_SCALE = 0.12
+const HELI_HELIPAD_DEFAULT = [2.2, 3.9, -7.1]    // dialed in via slider tuner
+const HELI_HOVER_OFFSET = [3, 14, 7]             // start position relative to pad: higher altitude, longer travel
+const SHOW_HELIPAD_MARKER = false                 // flip true to re-open the slider tuner
+
+// Rotors are animated as a stroboscopic array of fixed blade clones — each
+// blade set sits at a different angle and flashes opacity independently.
+// No actual rotation; the eye integrates the flashes into motion.
+const NUM_MAIN_BLADE_SETS = 1    // single blade set — no clones, no strobe
+const NUM_TAIL_BLADE_SETS = 1
+const STROBE_RATE_HZ = 14
+const STROBE_WINDOW = 0.5
+const STROBE_FLOOR  = 1          // strobe killed — blades always at full opacity
+const MAIN_BASE_ROT_SPEED = 5    // rev/sec — faster rotation, still below aliasing threshold
+const TAIL_BASE_ROT_SPEED = 8
+const SHOW_BLUR_DISCS = false
+const BLUR_DISC_OPACITY = 0.2
+const MAIN_DISC_SCALE = 3.6
+const TAIL_DISC_SCALE = 0.6
+
+// Helicopter timing — birds are at 100% by cycle 10, then the heli enters.
+// Lands at cycle 38 (2s before polygon rendering completes at 40).
+const HELI_FLY_IN_START     = 6            // enters 4s earlier
+const HELI_FADE_IN_END      = 9            // 3s fade in
+const HELI_DESCENT_DURATION = 31           // lands at cycle 37
+const HELI_FADE_OUT_START   = 65           // begins fade-out when deconstruction starts
+const HELI_HIDE             = 70           // gone at cycle restart
+
+function useHelicopterModel() {
+  const baseUrl = import.meta.env.BASE_URL || '/'
+  const url = `${baseUrl}helicopter_final.glb`.replace(/\/+/g, '/')
+  return useLoader(GLTFLoader, url, loader => {
+    loader.setDRACOLoader(dracoLoader)
+  })
+}
+
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+}
+
+// Cached world-space axes for rotor rotation. Using world axes keeps the
+// blade planes aligned with the ground regardless of the GLB's internal
+// transform hierarchy.
+const WORLD_Y = new THREE.Vector3(0, 1, 0)
+const WORLD_X = new THREE.Vector3(1, 0, 0)
+
+// Radial gradient texture — opaque in the center, alpha fades to 0 at the edge.
+// Applied to rotor discs for a soft motion-blur look.
+let radialGradientTexture = null
+function getRadialGradientTexture() {
+  if (radialGradientTexture) return radialGradientTexture
+  const size = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d')
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  grad.addColorStop(0,    'rgba(255,255,255,1)')
+  grad.addColorStop(0.75, 'rgba(255,255,255,1)')
+  grad.addColorStop(1,    'rgba(255,255,255,0)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, size, size)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  radialGradientTexture = tex
+  return tex
+}
+
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3)
+}
+
+function easeOutQuart(t) {
+  return 1 - Math.pow(1 - t, 4)
+}
+
+function HelipadMarker({ position }) {
+  return (
+    <group position={position}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[1.2, 1.2, 0.05, 24]} />
+        <meshBasicMaterial color="#ff3355" transparent opacity={0.85} />
+      </mesh>
+      <mesh position={[0, 1.5, 0]}>
+        <cylinderGeometry args={[0.08, 0.08, 3, 8]} />
+        <meshBasicMaterial color="#ff3355" />
+      </mesh>
+      <axesHelper args={[2]} />
+    </group>
+  )
+}
+
+function Helicopter({ padPosition }) {
+  const { scene } = useHelicopterModel()
+  const groupRef = useRef()
+  const mainRotorRef = useRef(null)
+  const tailRotorRef = useRef(null)
+
+  // One-time: log the full scene graph + find rotor meshes by common naming
+  const { model, materials, mainBladeSets, tailBladeSets } = useMemo(() => {
+    const cloned = scene.clone(true)
+
+    // Log the scene graph so you can identify rotor mesh names
+    // eslint-disable-next-line no-console
+    console.group('Helicopter Scene Graph')
+    cloned.traverse(obj => {
+      // eslint-disable-next-line no-console
+      console.log(`${obj.type}: "${obj.name}"${obj.isMesh ? ' [mesh]' : ''}`)
+    })
+    // eslint-disable-next-line no-console
+    console.groupEnd()
+
+    // Identify rotor meshes. This asset (Sketchfab "prop_helicopter_biggood")
+    // names its rotors "ChopChop_TOP" and "ChopChop_BACK". Fall back to the
+    // generic regex for future models.
+    let mainRotor = null
+    let tailRotor = null
+    cloned.traverse(obj => {
+      const name = (obj.name || '').toLowerCase()
+      if (!tailRotor && (name.includes('chopchop_back') || /(tail.*rotor|tail.*blade|rear.*rotor|tail.*prop)/.test(name))) {
+        tailRotor = obj
+      }
+    })
+    cloned.traverse(obj => {
+      if (obj === tailRotor) return
+      const name = (obj.name || '').toLowerCase()
+      if (!mainRotor && (name.includes('chopchop_top') || /(main.*rotor|main.*blade|rotor.*main|top.*rotor|rotor$|blade$|blades$|propeller$|prop$)/.test(name))) {
+        mainRotor = obj
+      }
+    })
+
+    if (!mainRotor && !tailRotor) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[Helicopter] No rotor meshes auto-detected. The model may be a single combined mesh. ' +
+        'Workaround: the whole model can be spun, or we can overlay primitive rotor disks. ' +
+        'Check the scene graph log above and paste rotor names back to me.',
+      )
+    } else {
+      // eslint-disable-next-line no-console
+      console.info('[Helicopter] Auto-detected rotors:', {
+        mainRotor: mainRotor?.name,
+        tailRotor: tailRotor?.name,
+      })
+    }
+
+    // Attach a soft-edged disc to each rotor. At high spin speed the blades
+    // smear, and the radial-gradient disc fills the gaps so the rotor reads
+    // as a solid rotating plane rather than stroboscopic blades.
+    const attachBlurDisc = (rotor, axis, scale) => {
+      if (!rotor) return null
+      let radius = 2.5
+      rotor.traverse(obj => {
+        if (obj.isMesh && obj.geometry) {
+          obj.geometry.computeBoundingSphere()
+          const r = obj.geometry.boundingSphere?.radius
+          if (r && r > radius) radius = r
+        }
+      })
+      radius *= scale
+      const disc = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius, radius, 0.02, 48, 1, false),
+        new THREE.MeshBasicMaterial({
+          map: getRadialGradientTexture(),
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          toneMapped: false,
+          side: THREE.DoubleSide,
+        })
+      )
+      // CylinderGeometry's axis is Y by default — caps lie in the XZ plane,
+      // which is horizontal. That's correct for the main rotor.
+      // Tail rotor spins on X, so rotate so the disc's axis aligns with X.
+      if (axis === 'x') disc.rotation.z = Math.PI / 2
+      rotor.add(disc)
+      disc.material.userData.maxOpacity = BLUR_DISC_OPACITY
+      return disc.material
+    }
+    // Create N blade clones at equally spaced angles around the spin axis.
+    // Each clone gets its own material and a phase offset so it can flash
+    // opacity independently in useFrame. Together the flashing creates a
+    // rotation illusion with no actual rotation of the parent.
+    const createStroboscopicBlades = (rotor, worldAxis, numSets) => {
+      if (!rotor) return []
+      const template = rotor.children[0]
+      if (!template) return []
+      const entries = []
+      const grayShades = [0xbbbbbb, 0xc8c8c8, 0xb2b2b2, 0xd0d0d0, 0xbebebe]
+
+      // Transform the world spin axis into the rotor's local space so the
+      // clone arrangement is truly perpendicular to the world axis (i.e.,
+      // blades fan out in a plane that's parallel to the ground).
+      rotor.updateMatrixWorld(true)
+      const invWorld = new THREE.Matrix4().copy(rotor.matrixWorld).invert()
+      const localSpinAxis = worldAxis.clone().transformDirection(invWorld).normalize()
+
+      for (let i = 0; i < numSets; i++) {
+        const clone = i === 0 ? template : template.clone(true)
+        const angle = (i / numSets) * Math.PI * 2
+        clone.quaternion.setFromAxisAngle(localSpinAxis, angle)
+
+        const setMaterials = []
+        const shade = grayShades[i % grayShades.length]
+        clone.traverse(o => {
+          if (!o.isMesh) return
+          const m = new THREE.MeshBasicMaterial({
+            color: shade,
+            transparent: true,
+            opacity: 0,
+            toneMapped: false,
+          })
+          o.material = m
+          setMaterials.push(m)
+        })
+        if (i > 0) rotor.add(clone)
+        entries.push({
+          materials: setMaterials,
+          phase: i / numSets,
+          brightness: 0.55 + Math.random() * 0.45, // 55-100% peak brightness
+        })
+      }
+      return entries
+    }
+    const mainBladeSets = createStroboscopicBlades(mainRotor, WORLD_Y, NUM_MAIN_BLADE_SETS)
+    const tailBladeSets = createStroboscopicBlades(tailRotor, WORLD_X, NUM_TAIL_BLADE_SETS)
+
+    const mainDiscMat = SHOW_BLUR_DISCS ? attachBlurDisc(mainRotor, 'y', MAIN_DISC_SCALE) : null
+    const tailDiscMat = SHOW_BLUR_DISCS ? attachBlurDisc(tailRotor, 'x', TAIL_DISC_SCALE) : null
+
+
+
+    // Preserve the GLB's baked texture. Add the diffuse map as an emissive
+    // contribution so the shadow side never drops below ~70% of the painted
+    // color — prevents the "heavy gray overlay" on the top of the body.
+    const materials = []
+    const seen = new Set()
+    if (mainDiscMat) materials.push(mainDiscMat)
+    if (tailDiscMat) materials.push(tailDiscMat)
+    cloned.traverse(child => {
+      if (!child.isMesh) return
+      // Walk up the parents to check if this mesh belongs to a rotor.
+      let p = child
+      let onRotor = false
+      while (p) {
+        if ((p.name || '').toLowerCase().includes('chopchop')) { onRotor = true; break }
+        p = p.parent
+      }
+      if (onRotor) {
+        // Rotor meshes are managed by the stroboscopic blade system (their
+        // materials are created in createStroboscopicBlades and strobed per
+        // frame), so skip them here.
+        child.castShadow = false
+        child.receiveShadow = false
+        return
+      }
+      const mats = Array.isArray(child.material) ? child.material : [child.material]
+      mats.forEach(mat => {
+        if (!mat || seen.has(mat)) return
+        seen.add(mat)
+        if (mat.map && 'emissiveMap' in mat) {
+          mat.emissive = new THREE.Color(0xffffff)
+          mat.emissiveMap = mat.map
+          mat.emissiveIntensity = 0.65
+        }
+        // Lower roughness + slight metalness = sharper specular highlights
+        // on the lit side without changing the base texture color.
+        if ('roughness' in mat) mat.roughness = 0.45
+        if ('metalness' in mat) mat.metalness = 0.1
+        mat.transparent = true
+        mat.opacity = 0
+        mat.toneMapped = false
+        mat.needsUpdate = true
+        materials.push(mat)
+      })
+      child.castShadow = false
+      child.receiveShadow = false
+    })
+
+    return { model: cloned, mainRotor, tailRotor, materials, mainBladeSets, tailBladeSets }
+  }, [scene])
+
+  // Flight curve rebuilds when padPosition changes so the helicopter tracks the slider.
+  const flightCurve = useMemo(() => {
+    const padV = new THREE.Vector3(...padPosition)
+    const hoverStart = padV.clone().add(new THREE.Vector3(...HELI_HOVER_OFFSET))
+    const midArc = new THREE.Vector3(
+      padV.x + HELI_HOVER_OFFSET[0] * 0.35,
+      padV.y + HELI_HOVER_OFFSET[1] * 0.55,
+      padV.z + HELI_HOVER_OFFSET[2] * 0.35,
+    )
+    return new THREE.CatmullRomCurve3([hoverStart, midArc, padV], false, 'catmullrom', 0.5)
+  }, [padPosition])
+
+  useEffect(() => {
+    const tailName = /(chopchop_back|tail.*rotor|tail.*blade|rear.*rotor|tail.*prop)/
+    const mainName = /(chopchop_top|main.*rotor|main.*blade|rotor.*main|top.*rotor|rotor$|blade$|blades$|propeller$|prop$)/
+    model.traverse(obj => {
+      const name = (obj.name || '').toLowerCase()
+      if (!tailRotorRef.current && tailName.test(name)) tailRotorRef.current = obj
+    })
+    model.traverse(obj => {
+      if (obj === tailRotorRef.current) return
+      const name = (obj.name || '').toLowerCase()
+      if (!mainRotorRef.current && mainName.test(name)) mainRotorRef.current = obj
+    })
+  }, [model])
+
+  useFrame((state, delta) => {
+    const t = state.clock.getElapsedTime()
+    const cycle = t % TOTAL_CYCLE_SECONDS
+
+    let visible = false
+    let opacity = 0
+    let pathProgress = 0
+
+    if (cycle >= HELI_FLY_IN_START && cycle < HELI_HIDE) {
+      visible = true
+      pathProgress = Math.min(1, (cycle - HELI_FLY_IN_START) / HELI_DESCENT_DURATION)
+
+      if (cycle < HELI_FADE_IN_END) {
+        opacity = (cycle - HELI_FLY_IN_START) / (HELI_FADE_IN_END - HELI_FLY_IN_START)
+      } else if (cycle > HELI_FADE_OUT_START) {
+        opacity = 1 - (cycle - HELI_FADE_OUT_START) / (HELI_HIDE - HELI_FADE_OUT_START)
+      } else {
+        opacity = 1
+      }
+      opacity = Math.max(0, Math.min(1, opacity))
+    }
+
+    if (materials) {
+      for (let i = 0; i < materials.length; i++) {
+        const max = materials[i].userData.maxOpacity ?? 1
+        materials[i].opacity = opacity * max
+      }
+    }
+
+    if (groupRef.current) {
+      groupRef.current.visible = visible
+      if (visible) {
+        // Ease-out so the helicopter decelerates as it approaches the pad.
+        const eased = easeOutCubic(pathProgress)
+        groupRef.current.position.copy(flightCurve.getPoint(eased))
+        groupRef.current.rotation.set(0, Math.PI, 0)
+
+        // Rotor speed ramps up as the helicopter approaches the pad — sells
+        // "spooling up for landing." 1x at fly-in start → ~2.8x at touchdown.
+        const rotorSpeedMult = 1 + pathProgress * 1.8
+
+        // Slow base rotation of the whole blade array, applied on the
+        // world axis so the blade plane stays parallel to the ground
+        // regardless of the rotor object's local orientation.
+        if (mainRotorRef.current) {
+          mainRotorRef.current.rotateOnWorldAxis(
+            WORLD_Y, delta * MAIN_BASE_ROT_SPEED * rotorSpeedMult * Math.PI * 2,
+          )
+        }
+        if (tailRotorRef.current) {
+          tailRotorRef.current.rotateOnWorldAxis(
+            WORLD_X, delta * TAIL_BASE_ROT_SPEED * rotorSpeedMult * Math.PI * 2,
+          )
+        }
+
+        // Stroboscopic rotor illusion: each blade set has its own phase;
+        // opacity peaks briefly in its window and decays otherwise. The
+        // collective pattern reads as fast asymmetric motion.
+        const strobeRate = STROBE_RATE_HZ * rotorSpeedMult
+        const strobeSets = (sets) => {
+          if (!sets) return
+          for (let i = 0; i < sets.length; i++) {
+            const entry = sets[i]
+            const phase = (t * strobeRate + entry.phase) % 1
+            const dist = Math.min(phase, 1 - phase)
+            const pulse = Math.max(0, 1 - dist / STROBE_WINDOW)
+            // Lift by STROBE_FLOOR so blades never drop fully to zero.
+            const softened = STROBE_FLOOR + pulse * (1 - STROBE_FLOOR)
+            const bladeOpacity = opacity * softened * entry.brightness
+            for (let j = 0; j < entry.materials.length; j++) {
+              entry.materials[j].opacity = bladeOpacity
+            }
+          }
+        }
+        strobeSets(mainBladeSets)
+        strobeSets(tailBladeSets)
+      } else {
+        // Helicopter invisible — ensure blade materials are also fully hidden
+        const hideSets = (sets) => {
+          if (!sets) return
+          for (let i = 0; i < sets.length; i++) {
+            for (let j = 0; j < sets[i].materials.length; j++) {
+              sets[i].materials[j].opacity = 0
+            }
+          }
+        }
+        hideSets(mainBladeSets)
+        hideSets(tailBladeSets)
+      }
+    }
+  })
+
+  return (
+    <group ref={groupRef} scale={HELI_SCALE} visible={false}>
+      <primitive object={model} />
+    </group>
+  )
+}
 
 function RigWireframe() {
   const { scene } = useRigModel()
 
   // Shared uniform that drives the fragment-dissolve in every solid material
   const solidProgressUniform = useRef({ value: 0 })
+  // Tracks when this component first rendered, so the animation cycle starts
+  // from 0 at mount time — prevents "pop-in" when the rig mounts late.
+  const mountTimeRef = useRef(null)
 
   const { wireRoot, solidRoot, levelMaterials, solidMaterials } = useMemo(() => {
     const cloned = scene.clone(true)
@@ -154,48 +612,73 @@ function RigWireframe() {
   }, [scene])
 
   useFrame((state) => {
-    const t = state.clock.getElapsedTime()
+    if (mountTimeRef.current === null) mountTimeRef.current = state.clock.getElapsedTime()
+    const t = state.clock.getElapsedTime() - mountTimeRef.current
     const cycle = t % TOTAL_CYCLE_SECONDS
 
     let wireMasterOpacity  // 0..1 multiplier on all wireframe levels
     let wireLODProgress    // 0..1 feeding into the level crossfade
     let solidOpacity       // 0..1 on textured meshes
 
-    if (cycle < PHASE_WIRE_BUILD) {
-      // 0-25s: wireframe builds up
-      const p = cycle / PHASE_WIRE_BUILD
+    // ── Wire master opacity ──
+    if (cycle < PHASE_WIRE_BUILD_END) {
       wireMasterOpacity = 1
-      wireLODProgress = p
-      solidOpacity = 0
-    } else if (cycle < PHASE_SOLID_IN) {
-      // 25-50s: wireframe fades out, solid fades in (full detail wireframe still resolved)
-      const p = (cycle - PHASE_WIRE_BUILD) / (PHASE_SOLID_IN - PHASE_WIRE_BUILD)
-      wireMasterOpacity = 1 - p
-      wireLODProgress = 1
-      solidOpacity = p
-    } else if (cycle < PHASE_SOLID_OUT) {
-      // 50-65s: solid fades out, wireframe fades back in (at full detail)
-      const p = (cycle - PHASE_SOLID_IN) / (PHASE_SOLID_OUT - PHASE_SOLID_IN)
-      wireMasterOpacity = p
-      wireLODProgress = 1
-      solidOpacity = 1 - p
+    } else if (cycle < PHASE_WIRE_FADE_OUT_END) {
+      wireMasterOpacity = 1 - (cycle - PHASE_WIRE_BUILD_END) / (PHASE_WIRE_FADE_OUT_END - PHASE_WIRE_BUILD_END)
+    } else if (cycle < PHASE_HOLD_END) {
+      wireMasterOpacity = 0
+    } else if (cycle < PHASE_WIRE_REAPPEAR_END) {
+      wireMasterOpacity = (cycle - PHASE_HOLD_END) / (PHASE_WIRE_REAPPEAR_END - PHASE_HOLD_END)
     } else {
-      // 65-80s: wireframe disassembles back to nothing (level-by-level)
-      const p = (cycle - PHASE_SOLID_OUT) / (PHASE_WIRE_OUT - PHASE_SOLID_OUT)
       wireMasterOpacity = 1
-      wireLODProgress = 1 - p
+    }
+
+    // ── Wire LOD progress (used only for deconstruction LOD-reverse) ──
+    // During build + hold we use the per-level timelines directly (below)
+    // for true laddered overlap; the shared wireLODProgress controls only
+    // the reverse LOD crossfade during the deconstruction phase.
+    if (cycle < PHASE_HOLD_END) {
+      wireLODProgress = 1 // irrelevant during build/hold — per-level takes over
+    } else if (cycle < PHASE_CYCLE_END) {
+      wireLODProgress = 1 - (cycle - PHASE_HOLD_END) / (PHASE_CYCLE_END - PHASE_HOLD_END)
+    } else {
+      wireLODProgress = 0 // pause — everything already gone
+    }
+
+    // ── Solid opacity ──
+    // easeInOutCubic: gentle slow rise at the start (no rapid fire-in),
+    // accelerates through the middle, eases into the held state.
+    if (cycle < PHASE_SOLID_IN_START) {
+      solidOpacity = 0
+    } else if (cycle < PHASE_SOLID_IN_END) {
+      const t = (cycle - PHASE_SOLID_IN_START) / (PHASE_SOLID_IN_END - PHASE_SOLID_IN_START)
+      solidOpacity = easeInOutCubic(t)
+    } else if (cycle < PHASE_HOLD_END) {
+      solidOpacity = 1
+    } else if (cycle < PHASE_SOLID_OUT_END) {
+      solidOpacity = 1 - (cycle - PHASE_HOLD_END) / (PHASE_SOLID_OUT_END - PHASE_HOLD_END)
+    } else {
       solidOpacity = 0
     }
 
-    // Apply wireframe level crossfade × master opacity
+    // Apply per-level opacity × master opacity.
+    // Build + hold: per-level timelines (laddered, independent).
+    // Deconstruction: shared reverse-LOD crossfade.
     const N = DETAIL_LEVELS.length
-    const step = 1 / N
-    levelMaterials.forEach((mat, i) => {
-      const peak = (i + 1) * step
-      const dist = Math.abs(wireLODProgress - peak)
-      const levelAlpha = Math.max(0, 1 - dist / step)
-      mat.opacity = levelAlpha * WIRE_OPACITY * wireMasterOpacity
-    })
+    if (cycle < PHASE_HOLD_END) {
+      levelMaterials.forEach((mat, i) => {
+        const alpha = levelAlphaFromTimeline(cycle, WIRE_LEVEL_TIMELINES[i])
+        mat.opacity = alpha * WIRE_OPACITY * wireMasterOpacity
+      })
+    } else {
+      const step = 1 / N
+      levelMaterials.forEach((mat, i) => {
+        const peak = (i + 1) * step
+        const dist = Math.abs(wireLODProgress - peak)
+        const levelAlpha = Math.max(0, 1 - dist / step)
+        mat.opacity = levelAlpha * WIRE_OPACITY * wireMasterOpacity
+      })
+    }
 
     // Apply solid model dissolve progress (0 = fully dissolved, 1 = fully solid)
     solidProgressUniform.current.value = solidOpacity
@@ -361,10 +844,10 @@ function SkyClouds() {
     const t = state.clock.getElapsedTime()
     const cycle = t % TOTAL_CYCLE_SECONDS
 
-    const IN_START = 18
-    const IN_END = 38
-    const OUT_START = 55
-    const OUT_END = 75
+    const IN_START = 5
+    const IN_END = 30
+    const OUT_START = 60
+    const OUT_END = 70
 
     let envelope = 0
     if (cycle >= IN_START && cycle < IN_END) {
@@ -413,7 +896,7 @@ function SkyClouds() {
   return (
     <group>
       {clouds.map((_, i) => (
-        <sprite key={i} ref={el => (refs.current[i] = el)}>
+        <sprite key={i} ref={el => (refs.current[i] = el)} renderOrder={-1}>
           <spriteMaterial
             map={cloudTexture}
             transparent
@@ -470,13 +953,14 @@ function Birds() {
     const t = state.clock.getElapsedTime()
     const cycle = t % TOTAL_CYCLE_SECONDS
 
-    // Opacity curve: invisible during wireframe-only phases, fades in during
-    // solid-in (25→50s), fades out during solid-out (50→65s).
+    // Birds appear early as a lead-in, stay through the hold, fade during deconstruction.
     let opacity = 0
-    if (cycle >= PHASE_WIRE_BUILD && cycle < PHASE_SOLID_IN) {
-      opacity = (cycle - PHASE_WIRE_BUILD) / (PHASE_SOLID_IN - PHASE_WIRE_BUILD)
-    } else if (cycle >= PHASE_SOLID_IN && cycle < PHASE_SOLID_OUT) {
-      opacity = 1 - (cycle - PHASE_SOLID_IN) / (PHASE_SOLID_OUT - PHASE_SOLID_IN)
+    if (cycle >= BIRDS_IN_START && cycle < BIRDS_IN_END) {
+      opacity = (cycle - BIRDS_IN_START) / (BIRDS_IN_END - BIRDS_IN_START)
+    } else if (cycle >= BIRDS_IN_END && cycle < PHASE_HOLD_END) {
+      opacity = 1
+    } else if (cycle >= PHASE_HOLD_END && cycle < PHASE_SOLID_OUT_END) {
+      opacity = 1 - (cycle - PHASE_HOLD_END) / (PHASE_SOLID_OUT_END - PHASE_HOLD_END)
     }
 
     refs.current.forEach((sprite, i) => {
@@ -539,6 +1023,24 @@ function CameraAutomation() {
   return null
 }
 
+function ClockReporter({ reportRef }) {
+  const mountTimeRef = useRef(null)
+  useFrame((state) => {
+    if (mountTimeRef.current === null) mountTimeRef.current = state.clock.getElapsedTime()
+    const t = state.clock.getElapsedTime() - mountTimeRef.current
+    reportRef.current = t % TOTAL_CYCLE_SECONDS
+  })
+  return null
+}
+
+function phaseLabel(cycle) {
+  if (cycle < PHASE_WIRE_BUILD_END) return 'WIRE BUILD'
+  if (cycle < PHASE_SOLID_IN_END)   return 'SOLID FADE-IN (wire fading out)'
+  if (cycle < PHASE_HOLD_END)       return 'HOLD (complete)'
+  if (cycle < PHASE_SOLID_OUT_END)  return 'DECONSTRUCTION (solid + wire)'
+  return 'WIRE LOD DISASSEMBLY'
+}
+
 function ViewOffset({ offset = VIEW_SHIFT, vOffset = V_SHIFT }) {
   const { camera, size } = useThree()
   useEffect(() => {
@@ -599,6 +1101,40 @@ function SkyDome({ sunPosition }) {
 }
 
 export default function Rig3D({ className = '' }) {
+  const [padPosition, setPadPosition] = useState(HELI_HELIPAD_DEFAULT)
+  const [showPadTuner, setShowPadTuner] = useState(SHOW_HELIPAD_MARKER)
+
+  // Defer heavy scene content until Landing.jsx's framer-motion entrance
+  // animations have had time to play — otherwise the GLB decode + LOD
+  // generation blocks the main thread and the page elements jump to their
+  // end state instead of fading in. 1200ms covers the longest animation
+  // (delay 0.6s + duration 0.8s = 1.4s).
+  const [mountScene, setMountScene] = useState(false)
+  const [mountHeli, setMountHeli] = useState(false)
+  useEffect(() => {
+    const sceneId = setTimeout(() => setMountScene(true), 1200)
+    const heliId = setTimeout(() => setMountHeli(true), 2000)
+    return () => {
+      clearTimeout(sceneId)
+      clearTimeout(heliId)
+    }
+  }, [])
+
+  // Debug clock overlay (flip to true to re-enable)
+  const [showClock, setShowClock] = useState(false)
+  const clockRef = useRef(0)
+  const clockDomRef = useRef(null)
+  const phaseDomRef = useRef(null)
+  useEffect(() => {
+    if (!showClock) return
+    const id = setInterval(() => {
+      const c = clockRef.current
+      if (clockDomRef.current) clockDomRef.current.textContent = c.toFixed(1) + 's  / 73s'
+      if (phaseDomRef.current) phaseDomRef.current.textContent = phaseLabel(c)
+    }, 50)
+    return () => clearInterval(id)
+  }, [showClock])
+
   const sunPosition = useMemo(() => {
     const v = new THREE.Vector3()
     const phi = THREE.MathUtils.degToRad(55) // higher in sky for daylight
@@ -624,15 +1160,117 @@ export default function Rig3D({ className = '' }) {
 
         <ViewOffset />
         <CameraAutomation />
+        {showClock && <ClockReporter reportRef={clockRef} />}
 
         <Suspense fallback={null}>
           <SkyDome sunPosition={sunPosition} />
-          <Ocean sunPosition={sunPosition} />
-          <SkyClouds />
-          <RigWireframe />
-          <Birds />
         </Suspense>
+
+        {mountScene && (
+          <Suspense fallback={null}>
+            <Ocean sunPosition={sunPosition} />
+            <SkyClouds />
+            <RigWireframe />
+            <Birds />
+          </Suspense>
+        )}
+
+        {/* Helicopter: mount is delayed 2s post-paint (see mountHeli) so its
+            GLB decode doesn't clobber page-entrance animations. Its own
+            Suspense keeps its load independent of the rig's animation state. */}
+        {mountHeli && (
+          <Suspense fallback={null}>
+            <Helicopter padPosition={padPosition} />
+          </Suspense>
+        )}
+
+        {showPadTuner && <HelipadMarker position={padPosition} />}
       </Canvas>
+
+      {showPadTuner && createPortal(
+        <div style={{ position: 'fixed', top: 12, right: 12, zIndex: 2147483647 }} className="bg-white border border-gray-400 rounded-sm shadow-lg p-3 font-mono text-[11px] tracking-wide text-bp-dark-grey w-64">
+          <div className="flex items-center justify-between mb-2">
+            <span className="uppercase font-semibold">Helipad Position</span>
+            <button
+              type="button"
+              onClick={() => setShowPadTuner(false)}
+              className="text-bp-silver hover:text-bp-dark-grey text-[14px] leading-none"
+              aria-label="Hide helipad tuner"
+            >
+              ×
+            </button>
+          </div>
+          {[
+            { axis: 'X', idx: 0, min: -20, max: 20 },
+            { axis: 'Y', idx: 1, min: 0, max: 30 },
+            { axis: 'Z', idx: 2, min: -20, max: 20 },
+          ].map(({ axis, idx, min, max }) => (
+            <div key={axis} className="flex items-center gap-2 mb-1">
+              <span className="w-4">{axis}</span>
+              <input
+                type="range"
+                min={min}
+                max={max}
+                step={0.1}
+                value={padPosition[idx]}
+                onChange={e => {
+                  const next = [...padPosition]
+                  next[idx] = parseFloat(e.target.value)
+                  setPadPosition(next)
+                }}
+                className="flex-1"
+              />
+              <span className="w-12 text-right">{padPosition[idx].toFixed(1)}</span>
+            </div>
+          ))}
+          <div className="mt-2 pt-2 border-t border-gray-200 text-[10px] text-bp-silver">
+            [{padPosition.map(n => n.toFixed(1)).join(', ')}]
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {showClock && createPortal(
+        <div style={{
+          position: 'fixed', top: 12, left: 12, zIndex: 2147483647,
+          background: 'white', border: '1px solid #333', padding: '8px 12px',
+          fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5,
+          minWidth: 280, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <strong>Cycle Clock</strong>
+            <button
+              type="button"
+              onClick={() => setShowClock(false)}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+            >×</button>
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 600 }} ref={clockDomRef}>0.0s / 73s</div>
+          <div style={{ fontSize: 11, color: '#666' }} ref={phaseDomRef}>—</div>
+          <hr style={{ margin: '8px 0', border: 0, borderTop: '1px solid #eee' }} />
+          <div style={{ fontSize: 10, color: '#666', lineHeight: 1.6 }}>
+            <div>7–14s: birds fade in</div>
+            <div>0–45s: wire build</div>
+            <div style={{ paddingLeft: 10 }}>
+              <div>• L0 (silhouette): 0 → 3 → 8</div>
+              <div>• L1: 2 → 8 → 12</div>
+              <div>• L2: 5 → 10 → 13</div>
+              <div>• L3: 10 → 14 → 21</div>
+              <div>• L4 (full): 13 → 20 → held</div>
+            </div>
+            <div>5–30s: clouds fade in</div>
+            <div>6s: helicopter enters</div>
+            <div>9–30s: solid polygons (easeInOutCubic)</div>
+            <div>40–45s: wire fades out (crossfade)</div>
+            <div>37s: helicopter lands</div>
+            <div>45–65s: <strong>HOLD</strong> (20s)</div>
+            <div>65–70s: solid fades out</div>
+            <div>65–70s: wire LOD reverses</div>
+            <div>70–73s: <strong>PAUSE</strong> (blank before loop)</div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {/* Bottom haze — fades close water into the page's white canvas */}
       <div className="absolute bottom-6 left-0 right-0 h-40 bg-gradient-to-t from-white via-white/25 to-transparent pointer-events-none" />

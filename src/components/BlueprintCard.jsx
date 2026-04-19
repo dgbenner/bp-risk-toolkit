@@ -14,10 +14,10 @@ export default function BlueprintCard({ blueprint, index }) {
       <span className="absolute bottom-2 left-2 font-mono text-[28px] leading-none text-bp-silver opacity-20">+</span>
       <span className="absolute bottom-2 right-2 font-mono text-[28px] leading-none text-bp-silver opacity-20">+</span>
 
-      {/* Top bar */}
-      <div className={`h-[3px] ${
+      {/* Top bar — flush at top; on hover it grows DOWNWARD (stays anchored at top), staying BP green */}
+      <div className={`absolute left-0 right-0 top-0 h-[3px] pointer-events-none transition-all duration-300 ${
         isActive
-          ? 'bg-bp-green group-hover:bg-bp-light-green transition-colors'
+          ? 'bg-bp-green group-hover:h-[9px]'
           : 'bg-bp-silver/30'
       }`} />
 
@@ -53,10 +53,10 @@ export default function BlueprintCard({ blueprint, index }) {
         </div>
       </div>
 
-      {/* Bottom CTA */}
+      {/* Bottom CTA — the only element that shifts to saturated sky-blue on hover for emphasis */}
       {isActive ? (
-        <div className="h-9 flex items-center justify-center border-t border-gray-100 bg-bp-pale-grey/50 group-hover:bg-bp-green/10 transition-colors">
-          <span className="font-mono text-[11px] tracking-[0.15em] uppercase text-bp-silver group-hover:text-bp-green transition-colors">
+        <div className="h-9 flex items-center justify-center border-t border-gray-100 bg-bp-pale-grey/50 group-hover:bg-[#1E90FF]/10 transition-colors">
+          <span className="font-mono text-[11px] tracking-[0.15em] uppercase text-bp-silver group-hover:text-[#0D7AD4] transition-colors">
             VIEW BLUEPRINT →
           </span>
         </div>
@@ -80,7 +80,7 @@ export default function BlueprintCard({ blueprint, index }) {
       {isActive ? (
         <Link
           to={`/blueprint/${blueprint.id}`}
-          className="group h-full flex flex-col border border-gray-200 hover:border-bp-green transition-all duration-300 bg-white relative overflow-hidden"
+          className="group h-full flex flex-col border border-gray-200 hover:border-t-bp-green hover:border-r-bp-light-green hover:border-b-bp-light-green hover:border-l-bp-light-green transition-all duration-300 bg-white relative overflow-hidden"
         >
           {cardBody}
         </Link>

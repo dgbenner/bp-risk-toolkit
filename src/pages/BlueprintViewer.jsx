@@ -13,6 +13,7 @@ import SystemLogo from '../components/SystemLogos'
 import PhaseColumn from '../components/PhaseColumn'
 import DetailPanel from '../components/DetailPanel'
 import bpHelios from '../assets/logos/bp-helios.png'
+import BpHelios3D from '../components/BpHelios3D'
 
 const blueprintMap = {
   'rig-verification': rigVerification,
@@ -441,12 +442,13 @@ export default function BlueprintViewer() {
       {/* Row 1 — header bar: logo + title + quote + blueprint tabs */}
       <div className="flex-shrink-0 border-b border-gray-200 px-4 flex items-end justify-between bg-white z-10">
         <div className="flex items-center gap-4 py-2">
+          {/* Variant A: 3D Helios logo in place of the flat PNG header icon */}
           <Link
             to="/"
             className="flex items-center justify-center hover:opacity-80 transition-opacity"
             title="Return to Risk Toolkit"
           >
-            <img src={bpHelios} alt="BP" className="w-14 h-14 object-contain" />
+            <BpHelios3D size={72} />
           </Link>
           <div>
             {/* Title + subtitle sharing a baseline */}
