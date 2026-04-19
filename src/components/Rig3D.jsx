@@ -91,6 +91,7 @@ const BIRDS_IN_END   = 14
 // Positive X = right, positive Y = up, positive Z = toward camera.
 const HELI_SCALE = 0.12
 const HELI_HELIPAD_DEFAULT = [2.2, 3.9, -7.1]    // dialed in via slider tuner
+const SHOW_ENTRY_TEST_ORBS = false                // diagnostic: 8 small colored dots along the first 1/8 of the heli flight curve, for scale-down calibration
 const HELI_HOVER_OFFSET = [3, 14, 7]             // start position relative to pad: higher altitude, longer travel
 const SHOW_HELIPAD_MARKER = false                 // flip true to re-open the slider tuner
 
@@ -467,16 +468,24 @@ function Helicopter({ padPosition }) {
     return { model: cloned, mainRotor, tailRotor, materials, mainBladeSets, tailBladeSets }
   }, [scene])
 
-  // Flight curve rebuilds when padPosition changes so the helicopter tracks the slider.
+  // Flight curve: sweeping counterclockwise arc from 7.857 o'clock entry
+  // (the "purple dot" path from the test orbs), around the rig, down to pad.
   const flightCurve = useMemo(() => {
     const padV = new THREE.Vector3(...padPosition)
-    const hoverStart = padV.clone().add(new THREE.Vector3(...HELI_HOVER_OFFSET))
-    const midArc = new THREE.Vector3(
-      padV.x + HELI_HOVER_OFFSET[0] * 0.35,
-      padV.y + HELI_HOVER_OFFSET[1] * 0.55,
-      padV.z + HELI_HOVER_OFFSET[2] * 0.35,
-    )
-    return new THREE.CatmullRomCurve3([hoverStart, midArc, padV], false, 'catmullrom', 0.5)
+    const hourAt = (hour, radius, yOffset) => {
+      const θ = (hour * Math.PI) / 6
+      return new THREE.Vector3(
+        padV.x + Math.sin(θ) * radius,
+        padV.y + yOffset,
+        padV.z - Math.cos(θ) * radius,
+      )
+    }
+    const ENTRY_HOUR = 8.1
+    const entry = hourAt(ENTRY_HOUR,       42, -3)
+    const mid1  = hourAt(ENTRY_HOUR - 2.2, 24,  1)
+    const mid2  = hourAt(ENTRY_HOUR - 4.2, 19,  6)
+    const apex  = hourAt(ENTRY_HOUR - 6.2, 13, 12)
+    return new THREE.CatmullRomCurve3([entry, mid1, mid2, apex, padV], false, 'catmullrom', 0.5)
   }, [padPosition])
 
   useEffect(() => {
@@ -505,9 +514,7 @@ function Helicopter({ padPosition }) {
       visible = true
       pathProgress = Math.min(1, (cycle - HELI_FLY_IN_START) / HELI_DESCENT_DURATION)
 
-      if (cycle < HELI_FADE_IN_END) {
-        opacity = (cycle - HELI_FLY_IN_START) / (HELI_FADE_IN_END - HELI_FLY_IN_START)
-      } else if (cycle > HELI_FADE_OUT_START) {
+      if (cycle > HELI_FADE_OUT_START) {
         opacity = 1 - (cycle - HELI_FADE_OUT_START) / (HELI_HIDE - HELI_FADE_OUT_START)
       } else {
         opacity = 1
@@ -525,18 +532,31 @@ function Helicopter({ padPosition }) {
     // Keep a shared cycle ref for pointer-event handlers (they can't read state.clock).
     currentCycleRef.current = cycle
 
-    // When a new cycle begins (heli offscreen), clear user-control flag.
+    // When a new cycle begins (heli offscreen), clear user-control flag and
+    // snap rotation to the default so the heli doesn't spin in from backward
+    // on its first reveal.
     if (cycle < HELI_FLY_IN_START) {
       hasBeenControlledRef.current = false
       dragStateRef.current.isDragging = false
       dragStateRef.current.target = null
       dragStateRef.current.pos.x = padPosition[0]
       dragStateRef.current.pos.z = padPosition[2]
+      if (groupRef.current) groupRef.current.rotation.y = HELI_DEFAULT_YAW
     }
 
     if (groupRef.current) {
       groupRef.current.visible = visible
       if (visible) {
+        // Dramatic intro scale: heli starts huge and shrinks to HELI_SCALE
+        // by the "purple dot" (index 6 of 8 on the diagnostic dots, at
+        // rawP = 6/7 × 0.125). Matches the dot the user picked as the
+        // point where the heli should reach normal scale.
+        const HELI_INTRO_START_SCALE = 1.0
+        const SCALE_DOWN_END_P = (6 / 7) * 0.125
+        const introT = Math.min(1, pathProgress / SCALE_DOWN_END_P)
+        const scaleNow = HELI_INTRO_START_SCALE + (HELI_SCALE - HELI_INTRO_START_SCALE) * introT
+        groupRef.current.scale.setScalar(scaleNow)
+
         const chaseTarget = (ds) => {
           if (!ds.isDragging || !ds.target) return
           hasBeenControlledRef.current = true
@@ -616,27 +636,57 @@ function Helicopter({ padPosition }) {
           )
         }
 
-        // ── Heading (yaw): smoothly face movement direction while dragging,
-        // otherwise relax back to the default orientation.
+        // ── Heading (yaw): while dragging, smoothly face movement direction.
+        // During auto fly-in, snap to the curve tangent (the tangent changes
+        // smoothly with the curve, so direct assignment looks continuous and
+        // avoids the visible "hard turn" from HELI_DEFAULT_YAW into the
+        // tangent direction). Otherwise relax back to the default orientation.
         {
           const ds = dragStateRef.current
           let desiredYaw = HELI_DEFAULT_YAW
+          let snapYaw = false
           if (ds.isDragging && ds.target && cycle >= HELI_FLY_IN_START && cycle < PHASE_HOLD_END) {
             const dx = ds.target.x - ds.pos.x
             const dz = ds.target.z - ds.pos.z
             if (dx * dx + dz * dz > 0.04) { // min deadzone: only reorient if target is more than ~0.2 units away
               desiredYaw = Math.atan2(dx, dz)
             }
+          } else if (cycle < HELI_LANDING_TIME && !hasBeenControlledRef.current) {
+            const p = easeOutCubic(pathProgress)
+            const tangent = flightCurve.getTangent(Math.min(0.999, p + 0.005))
+            if (Math.abs(tangent.x) + Math.abs(tangent.z) > 0.001) {
+              let yaw = Math.atan2(tangent.x, tangent.z)
+              // Over the last quarter of the VISUAL descent (eased progress
+              // 0.75 → 1.0), smoothly rotate 60° CCW so the heli squares up
+              // to the pad while still visibly moving, not after it parks.
+              const ALIGN_START = 3 / 4
+              if (p > ALIGN_START) {
+                const t = (p - ALIGN_START) / (1 - ALIGN_START)
+                const k = t * t * (3 - 2 * t) // smoothstep
+                yaw += (60 * Math.PI / 180) * k
+              }
+              desiredYaw = yaw
+              snapYaw = true
+            }
+          } else if (cycle < PHASE_HOLD_END && !hasBeenControlledRef.current) {
+            // Landed and untouched: hold the landing yaw instead of relaxing
+            // back to HELI_DEFAULT_YAW (which would cause a visible spin).
+            desiredYaw = groupRef.current.rotation.y
+            snapYaw = true
           }
-          const currentYaw = groupRef.current.rotation.y
-          let yawDiff = desiredYaw - currentYaw
-          while (yawDiff > Math.PI) yawDiff -= Math.PI * 2
-          while (yawDiff < -Math.PI) yawDiff += Math.PI * 2
-          const maxYawStep = HELI_YAW_SPEED * delta
-          if (Math.abs(yawDiff) <= maxYawStep) {
+          if (snapYaw) {
             groupRef.current.rotation.y = desiredYaw
           } else {
-            groupRef.current.rotation.y = currentYaw + Math.sign(yawDiff) * maxYawStep
+            const currentYaw = groupRef.current.rotation.y
+            let yawDiff = desiredYaw - currentYaw
+            while (yawDiff > Math.PI) yawDiff -= Math.PI * 2
+            while (yawDiff < -Math.PI) yawDiff += Math.PI * 2
+            const maxYawStep = HELI_YAW_SPEED * delta
+            if (Math.abs(yawDiff) <= maxYawStep) {
+              groupRef.current.rotation.y = desiredYaw
+            } else {
+              groupRef.current.rotation.y = currentYaw + Math.sign(yawDiff) * maxYawStep
+            }
           }
         }
 
@@ -696,7 +746,7 @@ function Helicopter({ padPosition }) {
   })
 
   return (
-    <group ref={groupRef} scale={HELI_SCALE} visible={false}>
+    <group ref={groupRef} visible={false}>
       <primitive object={model} />
     </group>
   )
@@ -894,6 +944,56 @@ function RigWireframe() {
     <group position={RIG_POSITION}>
       <primitive object={wireRoot} />
       <primitive object={solidRoot} />
+    </group>
+  )
+}
+
+function EntryTestOrbs({ padPosition }) {
+  // Diagnostic: 8 small static colored dots placed along the first 1/8 of
+  // the heli flight curve. Visible at all times so we can read exactly where
+  // along the track the helicopter should reach each scale value.
+  // Eased with easeOutCubic to match how pathProgress maps to curve position.
+  const COLORS = ['#000000', '#ff1a1a', '#ff8800', '#ffee00', '#00cc33', '#0066ff', '#aa00ff', '#ffffff']
+
+  const positions = useMemo(() => {
+    const padV = new THREE.Vector3(...padPosition)
+    const hourAt = (hour, radius, yOffset) => {
+      const θ = (hour * Math.PI) / 6
+      return new THREE.Vector3(
+        padV.x + Math.sin(θ) * radius,
+        padV.y + yOffset,
+        padV.z - Math.cos(θ) * radius,
+      )
+    }
+    const ENTRY_HOUR = 8.1
+    const entry = hourAt(ENTRY_HOUR,       42, -3)
+    const mid1  = hourAt(ENTRY_HOUR - 2.2, 24,  1)
+    const mid2  = hourAt(ENTRY_HOUR - 4.2, 19,  6)
+    const apex  = hourAt(ENTRY_HOUR - 6.2, 13, 12)
+    const curve = new THREE.CatmullRomCurve3([entry, mid1, mid2, apex, padV], false, 'catmullrom', 0.5)
+
+    // 8 dots, evenly spaced in pathProgress from 0 → 0.125, eased the same
+    // way the heli samples the curve (easeOutCubic) so dot N marks "heli at
+    // pathProgress = N × (0.125/7)."
+    const N = COLORS.length
+    const out = []
+    for (let i = 0; i < N; i++) {
+      const rawP = (i / (N - 1)) * 0.125
+      const eased = easeOutCubic(rawP)
+      out.push(curve.getPoint(eased))
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [padPosition])
+
+  return (
+    <group>
+      {COLORS.map((color, i) => (
+        <mesh key={i} position={positions[i]}>
+          <sphereGeometry args={[0.4, 16, 16]} />
+          <meshBasicMaterial color={color} toneMapped={false} />
+        </mesh>
+      ))}
     </group>
   )
 }
@@ -1382,9 +1482,14 @@ export default function Rig3D({ className = '' }) {
           <SkyDome sunPosition={sunPosition} />
         </Suspense>
 
+        {/* Ocean mounts immediately (tiny texture, fast decode) so the water
+            is already on screen before the rig wireframe begins building. */}
+        <Suspense fallback={null}>
+          <Ocean sunPosition={sunPosition} />
+        </Suspense>
+
         {mountScene && (
           <Suspense fallback={null}>
-            <Ocean sunPosition={sunPosition} />
             <SkyClouds />
             <RigWireframe />
             <Birds />
@@ -1400,6 +1505,7 @@ export default function Rig3D({ className = '' }) {
           </Suspense>
         )}
 
+        {SHOW_ENTRY_TEST_ORBS && <EntryTestOrbs padPosition={padPosition} />}
         {showPadTuner && <HelipadMarker position={padPosition} />}
       </Canvas>
 
@@ -1491,27 +1597,35 @@ export default function Rig3D({ className = '' }) {
       {/* Bottom haze — fades close water into the page's white canvas */}
       <div className="absolute bottom-6 left-0 right-0 h-40 bg-gradient-to-t from-white via-white/25 to-transparent pointer-events-none" />
 
-      {/* Attribution — one-line bar sitting below the canvas area */}
-      <div className="absolute bottom-0 left-0 right-0 h-6 flex items-center justify-end px-2 bg-white whitespace-nowrap">
-        <div className="font-mono text-[9px] tracking-[0.1em] uppercase text-bp-dark-grey opacity-70 flex items-center">
-          MODEL:{' '}
-          <a
-            href="https://skfb.ly/oOTpN"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-bp-green transition-colors ml-1"
+      {/* Attribution — one-line bar sitting below the canvas area. The bar
+          itself spans full viewport width (matches the canvas), but the text
+          is constrained to the same max-w-6xl + px-8 as the page content, so
+          it reads as if contained within the page's horizontal rule. */}
+      <div className="absolute bottom-0 left-0 right-0 h-6 flex items-center bg-white whitespace-nowrap">
+        <div className="max-w-6xl mx-auto w-full px-8 flex items-center justify-end">
+          <div
+            className="text-[7px] tracking-[0.1em] uppercase text-bp-dark-grey opacity-70 flex items-center"
+            style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
           >
-            OIL RIG — LOW POLY
-          </a>
-          <span className="mx-1">BY BENKOS · LICENSED</span>
-          <a
-            href="http://creativecommons.org/licenses/by/4.0/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-bp-green transition-colors"
-          >
-            CC BY 4.0
-          </a>
+            MODEL:{' '}
+            <a
+              href="https://skfb.ly/oOTpN"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-bp-green transition-colors ml-1"
+            >
+              OIL RIG — LOW POLY
+            </a>
+            <span className="mx-1">BY BENKOS · LICENSED</span>
+            <a
+              href="http://creativecommons.org/licenses/by/4.0/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-bp-green transition-colors"
+            >
+              CC BY 4.0
+            </a>
+          </div>
         </div>
       </div>
     </div>

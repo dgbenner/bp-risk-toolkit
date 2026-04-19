@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { blueprintList } from '../data/blueprints'
 import { platformEcosystem as systems } from '../data/platformEcosystem'
@@ -32,14 +32,14 @@ function PlatformEcosystem() {
 
   return (
     <motion.div
-      className="pt-7"
+      className="pt-3"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.8 }}
       ref={containerRef}
     >
       <h3
-        className="text-2xl font-light text-bp-dark-green tracking-wide mb-4 select-none"
+        className="text-2xl font-light text-bp-dark-green tracking-wide mb-2 select-none"
         style={{ textShadow: '0 0 10px rgba(255,255,255,1), 0 0 20px rgba(255,255,255,1), 0 0 40px rgba(255,255,255,1), 0 0 70px rgba(255,255,255,1), 0 0 110px rgba(255,255,255,0.95)' }}
       >
         Platform Ecosystem
@@ -115,6 +115,143 @@ function PlatformEcosystem() {
   )
 }
 
+const regions = [
+  {
+    code: 'GOM',
+    name: 'Gulf of Mexico',
+    detail: "OPERATED HUBS: Thunder Horse · Atlantis · Mad Dog · Na Kika · Argos — BP's largest deepwater operation. 150–200mi offshore Louisiana. Water depths 4,500–7,000ft. Production target 400,000 boe/d by mid-2020s.",
+  },
+  {
+    code: 'NSA',
+    name: 'North Sea',
+    detail: "KEY FIELDS: Clair · Vorlich · Schiehallion — West of Shetland and Central North Sea. BP's original home territory. Operated from Aberdeen. Clair is one of the largest remaining UK fields.",
+  },
+  {
+    code: 'ACG',
+    name: 'Azerbaijan / Caspian',
+    detail: "ACG COMPLEX: Azeri · Chirag · Deepwater Gunashli — BP's single largest asset. Shah Deniz supplies gas to Europe via Southern Gas Corridor. Production since 1997. BP stake 30.37%.",
+  },
+  {
+    code: 'ANG',
+    name: 'Angola',
+    detail: 'BLOCKS 18 + 31: Platina · Plutao · Zinia Phase 2 — Deepwater pre-salt development offshore Luanda. Water depths 1,200–1,500m. Joint operations with TotalEnergies.',
+  },
+  {
+    code: 'EGY',
+    name: 'Egypt / Mediterranean',
+    detail: "WEST NILE DELTA: Raven · Qattameya — Egypt's largest deepwater gas development. Raven online 2021. BP operator 82.75%. Supplies domestic Egyptian gas market.",
+  },
+  {
+    code: 'TTO',
+    name: 'Trinidad & Tobago',
+    detail: 'GAS FIELDS: Cassia · Cassia C · Matapal — BPTT operates from Port of Spain. Primarily gas production feeding LNG export. Matapal came online 2021.',
+  },
+  {
+    code: 'OMN',
+    name: 'Oman',
+    detail: 'BLOCK 61 — KHAZZAN: Onshore tight gas. Largest tight gas development in the Middle East. BP operator 60%. Capacity 1.5 bcf/day. Online since 2017.',
+  },
+  {
+    code: 'SCC',
+    name: 'South Caucasus Corridor',
+    detail: 'PIPELINE INFRASTRUCTURE: BTC · SCP · TAP — Baku-Tbilisi-Ceyhan pipeline 1,768km. Trans Adriatic Pipeline 878km to Italy. Carries Azerbaijani oil and gas to European markets.',
+  },
+]
+
+function RegionList() {
+  const [activeRegion, setActiveRegion] = useState(null)
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    if (!activeRegion) return
+    function handleClick(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setActiveRegion(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [activeRegion])
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.0 }}
+      ref={containerRef}
+    >
+      <h3
+        className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-silver mb-0.5 select-none"
+        style={{ textShadow: '0 0 10px rgba(255,255,255,1), 0 0 20px rgba(255,255,255,0.95)' }}
+      >
+        Operating Regions
+      </h3>
+      <div className="flex flex-wrap items-center gap-y-2 relative">
+        {regions.map((r, i) => {
+          const isActive = activeRegion === r.code
+          return (
+            <Fragment key={r.code}>
+              {i > 0 && (
+                <span
+                  className="font-mono text-[10px] tracking-[0.05em] text-bp-silver select-none"
+                  style={{ textShadow: '0 0 10px rgba(255,255,255,1), 0 0 18px rgba(255,255,255,0.9)' }}
+                  aria-hidden="true"
+                >
+                  ···
+                </span>
+              )}
+              <motion.div
+                className="relative"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.0 + i * 0.08, duration: 0.3 }}
+              >
+              <button
+                onClick={() => setActiveRegion(isActive ? null : r.code)}
+                className={`font-mono text-[10px] tracking-[0.05em] uppercase cursor-pointer transition-colors select-none ${
+                  isActive ? 'text-bp-green' : 'text-bp-dark-grey hover:text-bp-green'
+                }`}
+                style={{ textShadow: '0 0 10px rgba(255,255,255,1), 0 0 18px rgba(255,255,255,0.9)' }}
+              >
+                <span className="text-bp-silver">[</span>
+                {r.code}
+                <span className="text-bp-silver">]</span>
+              </button>
+
+              <AnimatePresence>
+                {isActive && (
+                  <motion.div
+                    className="absolute left-0 bottom-full mb-2 w-72 bg-white border border-bp-silver/30 shadow-[0_0_36px_rgba(137,207,240,0.3)] z-20 p-4"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <div className="absolute -bottom-[5px] left-4 w-2.5 h-2.5 bg-white border-r border-b border-bp-silver/30 rotate-45" />
+                    <button
+                      onClick={() => setActiveRegion(null)}
+                      className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center text-bp-silver hover:text-bp-dark-grey transition-colors cursor-pointer font-mono text-[11px] leading-none"
+                    >
+                      ×
+                    </button>
+                    <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-green mb-3 font-medium pr-5">
+                      [ {r.code} ] {r.name}
+                    </div>
+                    <p className="text-[12px] text-bp-dark-grey leading-snug">
+                      {r.detail}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              </motion.div>
+            </Fragment>
+          )
+        })}
+      </div>
+    </motion.div>
+  )
+}
+
 const wdwBullets = [
   'BP\'s internal digital platform for well operations',
   'Hosts Risk Toolkit + supporting modules',
@@ -149,7 +286,7 @@ export default function Landing() {
         <div className="absolute inset-0 z-0 pointer-events-none">
           <Rig3D className="w-full h-full" />
         </div>
-      <header className="relative max-w-6xl mx-auto px-8 pt-12 pb-14">
+      <header className="relative max-w-6xl mx-auto px-8 pt-12 pb-3">
         {/* Top bar — BP logo + WDW label with tooltip */}
         <motion.div
           className="flex items-center gap-5 mb-14 relative z-30 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto"
@@ -231,15 +368,15 @@ export default function Landing() {
             </motion.h1>
 
             <motion.p
-              className="text-xl text-bp-dark-grey font-light leading-relaxed max-w-lg mb-8 select-none"
+              className="text-xl text-bp-dark-grey font-light leading-relaxed max-w-[410px] mb-4 select-none"
               style={{ textShadow: '0 0 10px rgba(255,255,255,0.85), 0 0 20px rgba(255,255,255,0.5), 0 0 35px rgba(255,255,255,0.25)' }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.8 }}
             >
               Four service blueprints mapping the safety verification lifecycle
-              for offshore oil rig operations. From risk identification through
-              continuous monitoring to resolution.
+              for on and offshore oil rig operations. From risk identification
+              through continuous monitoring to resolution.
             </motion.p>
 
             {/* Platform Ecosystem with tooltips */}
@@ -248,6 +385,13 @@ export default function Landing() {
 
           {/* Right column reserved for rig model (rendered as absolute bg above) */}
           <div />
+        </div>
+
+        {/* Operating regions — sits at bottom of the hero canvas, just above
+            the horizontal rule divider. Moved out of the grid so it runs
+            across the full content width. */}
+        <div className="mt-8 relative z-10 pointer-events-none [&_button]:pointer-events-auto">
+          <RegionList />
         </div>
       </header>
       </div>
@@ -327,44 +471,49 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer — Org hierarchy + dates */}
-      <footer className="max-w-6xl mx-auto px-8 py-8 border-t border-gray-200">
+      {/* Footer — Org hierarchy + dates. Uses Arial rather than HUD mono
+          so the attribution reads as more conventional document metadata. */}
+      <footer
+        className="max-w-6xl mx-auto px-8 py-8 border-t border-gray-200"
+        style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
+      >
         <div className="flex justify-between items-center">
           {/* Left: organizational hierarchy */}
           <div className="flex items-center gap-2.5">
             <img src={bpHelios} alt="BP" className="w-5 h-5 object-contain" />
-            <span className="font-mono text-[11px] tracking-[0.1em] uppercase text-bp-green font-medium">
+            <span className="text-[9px] tracking-[0.1em] uppercase text-bp-green font-medium">
               BP
             </span>
-            <span className="text-bp-silver text-xs">/</span>
-            <span className="font-mono text-[11px] tracking-[0.1em] uppercase text-bp-dark-grey">
+            <span className="text-bp-silver text-[10px]">/</span>
+            <span className="text-[9px] tracking-[0.1em] uppercase text-bp-dark-grey">
               UPSTREAM — OFFSHORE OPERATIONS
             </span>
-            <span className="text-bp-silver text-xs">/</span>
-            <span className="font-mono text-[11px] tracking-[0.1em] uppercase text-bp-dark-grey">
+            <span className="text-bp-silver text-[10px]">/</span>
+            <span className="text-[9px] tracking-[0.1em] uppercase text-bp-dark-grey">
               WELL DELIVERY WORKBENCH
             </span>
-            <span className="text-bp-silver text-xs">/</span>
-            <span className="font-mono text-[11px] tracking-[0.1em] uppercase text-bp-green font-medium">
+            <span className="text-bp-silver text-[10px]">/</span>
+            <span className="text-[9px] tracking-[0.1em] uppercase text-bp-green font-medium">
               RISK TOOLKIT
             </span>
           </div>
 
-          {/* Right: dates */}
+          {/* Right: dates — each date sits in a 20px-tall row to match the
+              left side's icon-driven row height, so text baselines align. */}
           <div className="flex items-center gap-6">
-            <div>
-              <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-silver">
+            <div className="h-5 flex items-center">
+              <span className="text-[8px] tracking-[0.12em] uppercase text-bp-silver">
                 CREATED:{' '}
               </span>
-              <span className="font-mono text-[11px] tracking-[0.08em] text-bp-dark-grey">
+              <span className="text-[9px] tracking-[0.08em] text-bp-dark-grey">
                 AUGUST 2021
               </span>
             </div>
-            <div>
-              <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-silver">
+            <div className="h-5 flex items-center">
+              <span className="text-[8px] tracking-[0.12em] uppercase text-bp-silver">
                 LAST UPDATED:{' '}
               </span>
-              <span className="font-mono text-[11px] tracking-[0.08em] text-bp-dark-grey">
+              <span className="text-[9px] tracking-[0.08em] text-bp-dark-grey">
                 NOVEMBER 2021
               </span>
             </div>
