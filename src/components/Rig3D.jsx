@@ -481,7 +481,7 @@ function Helicopter({ padPosition }) {
       )
     }
     const ENTRY_HOUR = 8.1
-    const entry = hourAt(ENTRY_HOUR,       42, -3)
+    const entry = hourAt(ENTRY_HOUR,       42, -7)
     const mid1  = hourAt(ENTRY_HOUR - 2.2, 24,  1)
     const mid2  = hourAt(ENTRY_HOUR - 4.2, 19,  6)
     const apex  = hourAt(ENTRY_HOUR - 6.2, 13, 12)
@@ -966,7 +966,7 @@ function EntryTestOrbs({ padPosition }) {
       )
     }
     const ENTRY_HOUR = 8.1
-    const entry = hourAt(ENTRY_HOUR,       42, -3)
+    const entry = hourAt(ENTRY_HOUR,       42, -7)
     const mid1  = hourAt(ENTRY_HOUR - 2.2, 24,  1)
     const mid2  = hourAt(ENTRY_HOUR - 4.2, 19,  6)
     const apex  = hourAt(ENTRY_HOUR - 6.2, 13, 12)
