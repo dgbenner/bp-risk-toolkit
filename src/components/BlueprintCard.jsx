@@ -14,11 +14,10 @@ export default function BlueprintCard({ blueprint, index }) {
       <span className="absolute bottom-2 left-2 font-mono text-[28px] leading-none text-bp-silver opacity-20">+</span>
       <span className="absolute bottom-2 right-2 font-mono text-[28px] leading-none text-bp-silver opacity-20">+</span>
 
-      {/* Top bar — flush at top; on hover it grows DOWNWARD (stays anchored at top), staying BP green */}
+      {/* Top bar — flush at top, BP green when active. No longer grows on
+          hover; the whole card scales 1.05 so the bar scales with it. */}
       <div className={`absolute left-0 right-0 top-0 h-[3px] pointer-events-none transition-all duration-300 ${
-        isActive
-          ? 'bg-bp-green group-hover:h-[9px]'
-          : 'bg-bp-silver/30'
+        isActive ? 'bg-bp-green' : 'bg-bp-silver/30'
       }`} />
 
       <div className="px-6 pt-6 pb-6 flex-1">
@@ -80,7 +79,7 @@ export default function BlueprintCard({ blueprint, index }) {
       {isActive ? (
         <Link
           to={`/blueprint/${blueprint.id}`}
-          className="group h-full flex flex-col border border-gray-200 hover:border-t-bp-green hover:border-r-bp-light-green hover:border-b-bp-light-green hover:border-l-bp-light-green transition-all duration-300 bg-white relative overflow-hidden"
+          className="group h-full flex flex-col border border-gray-200 hover:border-t-bp-green hover:border-r-bp-light-green hover:border-b-bp-light-green hover:border-l-bp-light-green transition-all duration-300 bg-white relative overflow-hidden hover:scale-[1.05] hover:z-10 hover:shadow-[0_0_14px_rgba(0,0,0,0.08)]"
         >
           {cardBody}
         </Link>

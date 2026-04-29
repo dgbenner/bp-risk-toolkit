@@ -44,7 +44,7 @@ function PlatformEcosystem() {
       >
         Platform Ecosystem
       </h3>
-      <div className="flex flex-wrap gap-3 relative max-w-md">
+      <div className="flex flex-wrap gap-1.5 relative max-w-md">
         {systems.map(sys => {
           const isActive = activeSystem === sys.name
           const toRight = opensRight.has(sys.name)
@@ -160,6 +160,7 @@ const regions = [
 
 function RegionList() {
   const [activeRegion, setActiveRegion] = useState(null)
+  const [highlightIndex, setHighlightIndex] = useState(0)
   const containerRef = useRef(null)
 
   useEffect(() => {
@@ -171,6 +172,17 @@ function RegionList() {
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
+  }, [activeRegion])
+
+  // Cycle a transient underline through each region every ~4s as a passive
+  // visual highlight. Pauses while a tooltip is open so it doesn't compete
+  // with whichever region the user is actively reading.
+  useEffect(() => {
+    if (activeRegion) return
+    const id = setInterval(() => {
+      setHighlightIndex(i => (i + 1) % regions.length)
+    }, 4000)
+    return () => clearInterval(id)
   }, [activeRegion])
 
   return (
@@ -208,7 +220,7 @@ function RegionList() {
               >
               <button
                 onClick={() => setActiveRegion(isActive ? null : r.code)}
-                className={`font-mono text-[10px] tracking-[0.05em] uppercase cursor-pointer transition-colors select-none ${
+                className={`relative font-mono text-[10px] tracking-[0.05em] uppercase cursor-pointer transition-colors select-none ${
                   isActive ? 'text-bp-green' : 'text-bp-dark-grey hover:text-bp-green'
                 }`}
                 style={{ textShadow: '0 0 10px rgba(255,255,255,1), 0 0 18px rgba(255,255,255,0.9)' }}
@@ -216,6 +228,12 @@ function RegionList() {
                 <span className="text-bp-silver">[</span>
                 {r.code}
                 <span className="text-bp-silver">]</span>
+                <motion.span
+                  className="absolute left-0 right-0 -bottom-[3px] h-px bg-bp-green pointer-events-none"
+                  animate={{ opacity: highlightIndex === i && !activeRegion ? 1 : 0 }}
+                  transition={{ duration: 0.4 }}
+                  aria-hidden="true"
+                />
               </button>
 
               <AnimatePresence>
