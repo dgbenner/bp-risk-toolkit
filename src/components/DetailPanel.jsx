@@ -1,12 +1,30 @@
+import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { roles } from '../data/roles'
 import OutputIcon from './OutputIcon'
 
 export default function DetailPanel({ phase, systems, onClose }) {
+  const panelRef = useRef(null)
+
+  // Close the panel when the user clicks outside of it. The trigger click
+  // (on the phase header cell) fires before this listener attaches, so it
+  // doesn't immediately self-close on open.
+  useEffect(() => {
+    if (!phase) return
+    function handleClick(e) {
+      if (panelRef.current && !panelRef.current.contains(e.target)) {
+        onClose()
+      }
+    }
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [phase, onClose])
+
   return (
     <AnimatePresence>
       {phase && (
         <motion.div
+          ref={panelRef}
           className="fixed top-0 right-0 h-full w-[380px] bg-white border-l border-gray-200 shadow-xl z-50 overflow-y-auto"
           initial={{ x: 380 }}
           animate={{ x: 0 }}
@@ -16,8 +34,8 @@ export default function DetailPanel({ phase, systems, onClose }) {
           {/* Header */}
           <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-start justify-between">
             <div>
-              <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-green mb-1">
-                [ {String(phase.index).padStart(2, '0')} / {phase.name.toUpperCase()} ]
+              <div className="font-mono text-[10px] tracking-[0.12em] text-bp-green mb-1">
+                [ {String(phase.index).padStart(2, '0')} / {String(phase.name).toUpperCase().replace(/\bTOR\b/g, 'ToR')} ]
               </div>
               <div className="font-mono text-[10px] tracking-[0.1em] text-bp-silver">
                 LOC: {phase.location}
@@ -60,14 +78,19 @@ export default function DetailPanel({ phase, systems, onClose }) {
                         className="w-8 h-8 rounded-full object-cover"
                         style={{
                           border: `2px solid ${isBP ? '#007F00' : '#FF9900'}`,
+                          transform: role.id === 'rvManager' ? 'scaleX(-1)' : undefined,
                         }}
                       />
                       <div>
-                        <div className="text-xs font-medium text-bp-dark-grey">
-                          {role.name}
+                        {/* Role title is primary; person's name (if any) is
+                            secondary — same hierarchy as the Roles panel. */}
+                        <div className="text-xs font-medium text-black">
+                          {role.role || role.name}
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] text-bp-silver">{role.title}</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {role.personName && (
+                            <span className="text-[9px] italic text-bp-silver">{role.personName}</span>
+                          )}
                           <span
                             className="px-1 py-0.5 font-mono text-[7px] tracking-[0.1em] uppercase"
                             style={{

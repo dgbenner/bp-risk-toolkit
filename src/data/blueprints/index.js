@@ -28,7 +28,7 @@ export const blueprintList = [
     sourceLabel: 'Informed synthesis',
     orgs: ['bp'],
     order: 1,
-    active: false,
+    active: true,
   },
   {
     id: 'self-verification',
@@ -41,7 +41,7 @@ export const blueprintList = [
     sourceLabel: 'Informed synthesis',
     orgs: ['valaris'],
     order: 3,
-    active: false,
+    active: true,
   },
   {
     id: 'risk-register',
@@ -54,6 +54,6 @@ export const blueprintList = [
     sourceLabel: 'Informed synthesis',
     orgs: ['bp', 'valaris'],
     order: 4,
-    active: false,
+    active: true,
   },
 ]

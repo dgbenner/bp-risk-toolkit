@@ -62,7 +62,7 @@ export const roles = {
     name: 'RV Team',
     title: '2–6 Verifiers',
     org: ORG_BP,
-    avatar: rvManager,
+    avatar: null,
     personName: null,
     role: 'RV Team',
     description:
@@ -98,7 +98,7 @@ export const roles = {
     name: 'Well Site Manager',
     title: 'Offshore Manager',
     org: ORG_VALARIS,
-    avatar: wellCrew,
+    avatar: null,
     personName: null,
     role: 'Well Site Manager',
     description:
@@ -110,7 +110,7 @@ export const roles = {
     name: 'Well Crew',
     title: 'Rig Crew',
     org: ORG_VALARIS,
-    avatar: wellCrew,
+    avatar: null,
     personName: null,
     role: 'Well Crew',
     description:
@@ -122,7 +122,7 @@ export const roles = {
     name: 'Risk Engineer',
     title: 'BP Risk Engineer',
     org: ORG_BP,
-    avatar: rvManager,
+    avatar: null,
     personName: null,
     role: 'Risk Engineer',
     description:
@@ -134,7 +134,7 @@ export const roles = {
     name: 'Well Site Leader',
     title: 'WSL (Offshore)',
     org: ORG_VALARIS,
-    avatar: wellSuper,
+    avatar: null,
     personName: null,
     role: 'Well Site Leader (WSL)',
     description:
@@ -146,7 +146,7 @@ export const roles = {
     name: 'Regional Risk Engineer',
     title: 'BP Regional Risk Engineer',
     org: ORG_BP,
-    avatar: rvManager,
+    avatar: null,
     personName: null,
     role: 'Regional Risk Engineer',
     description:

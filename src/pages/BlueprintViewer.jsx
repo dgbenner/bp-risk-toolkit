@@ -1,4 +1,5 @@
 import { Fragment, useState, useMemo, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { rigVerification } from '../data/blueprints/rigVerification'
@@ -15,6 +16,8 @@ import OutputIcon from '../components/OutputIcon'
 import DetailPanel from '../components/DetailPanel'
 import bpHelios from '../assets/logos/bp-helios.png'
 import valarisMark from '../assets/logos/valaris-mark.png'
+import sunnyIcon from '../assets/icons/sunny.png'
+import infinityIcon from '../assets/icons/infinity.png'
 import BpHelios3D from '../components/BpHelios3D'
 
 const blueprintMap = {
@@ -24,11 +27,50 @@ const blueprintMap = {
   'risk-register': riskRegister,
 }
 
+// Uppercase a phase/document name while preserving "ToR" (Terms of
+// Reference) with its lowercase "o" — that's the conventional casing.
+function upperKeepToR(s) {
+  return String(s).toUpperCase().replace(/\bTOR\b/g, 'ToR')
+}
+
+// Phase-purpose summaries shown in the header tooltip. Keyed by phase.id —
+// the rig-verification phase ids today, with stubs for the other blueprints
+// to fill in later. Plain-language summaries based on the rig verification
+// process.
+const PHASE_PURPOSES = {
+  'create-tor':
+    'Define what gets verified. The Rig Verifier drafts the Terms of Reference: which barriers and bowties the team will inspect, the rig type, and which standards apply. Sets the scope of the entire verification.',
+  'review-tor':
+    'RV Manager reviews the draft for completeness and alignment with global verification standards. Catches gaps before the document goes to the operator.',
+  'agree-tor':
+    "The operator's Well Superintendent accepts or negotiates the scope. Both organizations align on what's being checked, when, and by whom before any field work begins.",
+  'approve-tor':
+    'Final formal sign-off locks the ToR. The Activity transitions from Preparation to Execution status — the verification is now committed and travel is booked.',
+  'conduct-verification':
+    'The RV Team boards the rig and physically inspects every barrier on the agreed checklists. Captures evidence (photos, video, notes) via RVRT, working offline since rig connectivity is unreliable.',
+  'offshore-closeout':
+    "Verbal closeout meeting between the RV Team and the operator's Well Delivery Team before the verifiers leave the rig. Last chance to clarify findings face-to-face while everyone is still on the platform.",
+  'onshore-closeout':
+    'Formal review back on shore. Evidence is consolidated, findings ranked by severity, draft language begins. The transition from field observations to a structured report.',
+  'create-draft-report':
+    'Rig Verifier compiles findings into a draft report. Status flips to Draft Issues — the verification is no longer active offshore but the report has not been finalized or agreed.',
+  'approve-report':
+    'RV Manager reviews the draft for tone, accuracy, and consistency. Nothing leaves BP without this approval, ensuring every report meets the same bar across regions.',
+  'internal-review':
+    'Negotiation phase with the Well Delivery Team on language and resolution timelines for each finding. Operator can push back on specific items before finalization.',
+  'final-report':
+    'Formal report issued. The application auto-distributes to the Responsible Person, VP Wells Region, Wells Operations Manager, and Regional Risk Engineer.',
+  'review-evidence-close':
+    'Operator submits evidence as gaps are closed. RV Team reviews each piece and either accepts the closure or sends it back for more work. Can run for weeks or months.',
+  'complete':
+    'All findings resolved or formally accepted. Verification is closed in the system; the record archives in Salesforce + Power BI for trend analysis across rigs and regions.',
+}
+
 const swimlaneLabels = [
   { key: 'header', label: 'PHASE', height: 'h-[46px]' },
   { key: 'location', label: 'LOCATION', height: 'min-h-[36px]' },
-  { key: 'appState', label: 'APP STATE', height: 'min-h-[36px]' },
-  { key: 'time', label: 'TIME', height: 'min-h-[36px]' },
+  { key: 'appState', label: 'APP STATUS', height: 'min-h-[36px]' },
+  { key: 'time', label: 'TIME IN DAYS', height: 'min-h-[36px]' },
   { key: 'actions', label: 'PRIMARY ACTIONS', height: 'min-h-[80px]' },
   { key: 'output', label: 'OUTPUT', height: 'min-h-[60px]' },
   { key: 'frontstage', label: 'FRONTSTAGE', height: 'min-h-[48px]' },
@@ -39,6 +81,98 @@ const swimlaneLabels = [
   { key: 'systems', label: 'SYSTEMS', height: 'min-h-[36px]' },
   { key: 'roles', label: 'ACTIVE ROLES', height: 'min-h-[40px]' },
 ]
+
+// Research-sources strip — collapsed by default. Click the underlined label
+// to spool out the joined source list. Sequence:
+//   1. Slide-in (~900ms): content translates from x=-100% to 0; Alex (the
+//      first source) lands on the left.
+//   2. Pause 5s with Alex fully readable.
+//   3. Marquee (~30px/sec): content translates from 0 to -overflow,
+//      revealing later sources on the right.
+//   4. Done: animation stops at the end position; user can drag the strip
+//      left/right to scrub through the text.
+function ResearchSourcesStrip({ label, sources }) {
+  const [phase, setPhase] = useState('closed') // closed | sliding | paused | marqueeing | done
+  const [panelW, setPanelW] = useState(0)
+  const [contentW, setContentW] = useState(0)
+  const panelRef = useRef(null)
+  const contentRef = useRef(null)
+
+  const text = sources.join('     ·     ')
+  const overflow = Math.max(0, contentW - panelW)
+
+  // Re-measure when opened or on window resize.
+  useEffect(() => {
+    if (phase === 'closed') return
+    function measure() {
+      if (panelRef.current) setPanelW(panelRef.current.offsetWidth)
+      if (contentRef.current) setContentW(contentRef.current.scrollWidth)
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [phase])
+
+  // Drive the phase timeline.
+  useEffect(() => {
+    if (phase === 'sliding') {
+      const t = setTimeout(() => setPhase('paused'), 900)
+      return () => clearTimeout(t)
+    }
+    if (phase === 'paused') {
+      const t = setTimeout(() => setPhase('marqueeing'), 5000)
+      return () => clearTimeout(t)
+    }
+    if (phase === 'marqueeing') {
+      const dur = overflow > 0 ? Math.max(4000, (overflow / 30) * 1000) : 0
+      const t = setTimeout(() => setPhase('done'), dur)
+      return () => clearTimeout(t)
+    }
+  }, [phase, overflow])
+
+  const open = phase !== 'closed'
+  const targetX =
+    phase === 'sliding' || phase === 'paused' ? 0 :
+    phase === 'marqueeing' || phase === 'done' ? -overflow :
+    0
+  const duration =
+    phase === 'sliding' ? 0.9 :
+    phase === 'marqueeing' ? (overflow > 0 ? Math.max(4, overflow / 30) : 0) :
+    0
+
+  return (
+    <div className="flex-shrink-0 bg-gray-200 border-b border-gray-300 flex items-center gap-3 px-4 py-1.5">
+      <button
+        type="button"
+        onClick={() => { if (phase === 'closed') setPhase('sliding') }}
+        className="font-mono text-[9px] tracking-[0.1em] uppercase text-bp-dark-grey font-medium underline underline-offset-[3px] hover:text-black transition-colors flex items-center gap-1.5 cursor-pointer flex-shrink-0 select-none"
+      >
+        {label}
+        <svg viewBox="0 0 6 6" className="w-[6px] h-[6px]" aria-hidden="true">
+          <path d="M0 0 L6 3 L0 6 Z" fill="currentColor" />
+        </svg>
+      </button>
+
+      {open && (
+        <div ref={panelRef} className="flex-1 min-w-0 overflow-hidden relative h-[14px]">
+          <motion.div
+            ref={contentRef}
+            initial={{ x: '-100%' }}
+            animate={{ x: targetX }}
+            transition={{ duration, ease: 'linear' }}
+            drag={phase === 'done' ? 'x' : false}
+            dragConstraints={{ left: -overflow, right: 0 }}
+            dragElastic={0.05}
+            className="font-mono text-[9px] text-black whitespace-nowrap inline-block absolute left-0 top-0 cursor-grab active:cursor-grabbing select-none"
+            style={{ userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+          >
+            {text}
+          </motion.div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function usePopover() {
   const [open, setOpen] = useState(false)
@@ -239,38 +373,46 @@ function RoleCard({ role, isFirst }) {
   const isBp = role.org === 'bp'
   const badgeImg = isBp ? bpHelios : valarisMark
   const badgeAlt = isBp ? 'BP' : 'Operator'
-  // Org-coded color block on the left so org affiliation reads at a glance.
-  // BP green for BP roles; dark navy (operator-logo blue) for operator roles.
-  const blockBg = isBp ? '#007F00' : '#1A2D5C'
+  // Outlined treatment: org color appears as a 3px ring around the photo
+  // instead of a solid block behind it. BP green / operator navy.
+  const outlineColor = isBp ? '#007F00' : '#1A2D5C'
+  // Flip the RV Manager headshot horizontally per stylistic preference.
+  const flipImg = role.id === 'rvManager'
   return (
-    <div className={`flex items-stretch ${isFirst ? '' : 'border-t border-[#EBEBEB]'}`}>
-      <div
-        className="flex-shrink-0 flex items-center px-3 py-3"
-        style={{ backgroundColor: blockBg }}
-      >
-        <div className="relative w-20 h-20">
-          {role.avatar ? (
-            <img
-              src={role.avatar}
-              alt={role.name || role.role}
-              className="w-20 h-20 rounded-full object-cover bg-gray-100"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center font-mono text-[9px] tracking-[0.1em] text-bp-silver">
-              NO PHOTO
-            </div>
-          )}
-          {/* Org badge — circular white-fill with the org's logo, mirrors the
-              treatment used on the left rail's primary-actions photo. */}
+    <div className={`flex items-start gap-3 px-3 py-3 ${isFirst ? '' : 'border-t border-[#EBEBEB]'}`}>
+      <div className="relative flex-shrink-0 w-20 h-20">
+        {role.avatar ? (
+          <img
+            src={role.avatar}
+            alt={role.name || role.role}
+            className="w-20 h-20 rounded-full object-cover bg-gray-100"
+            style={{
+              border: `3px solid ${outlineColor}`,
+              transform: flipImg ? 'scaleX(-1)' : undefined,
+            }}
+          />
+        ) : (
+          // Silhouette placeholder for roles without a real headshot yet.
           <div
-            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white border-2 border-white flex items-center justify-center overflow-hidden shadow-sm"
-            aria-label={badgeAlt}
+            className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center"
+            style={{ border: `3px solid ${outlineColor}` }}
           >
-            <img src={badgeImg} alt={badgeAlt} className="w-full h-full object-contain p-[2px]" />
+            <svg viewBox="0 0 24 24" className="w-12 h-12 text-bp-silver" fill="currentColor">
+              <circle cx="12" cy="8.5" r="3.6" />
+              <path d="M3.5 22c0-4.3 3.8-7.5 8.5-7.5s8.5 3.2 8.5 7.5z" />
+            </svg>
           </div>
+        )}
+        {/* Org badge — circular white-fill with the org's logo, overlapping
+            bottom-right. Mirrors the left rail / hover treatment. */}
+        <div
+          className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white border-2 border-white flex items-center justify-center overflow-hidden shadow-sm"
+          aria-label={badgeAlt}
+        >
+          <img src={badgeImg} alt={badgeAlt} className="w-full h-full object-contain p-[2px]" />
         </div>
       </div>
-      <div className="flex-1 min-w-0 px-3 py-3">
+      <div className="flex-1 min-w-0">
         {/* Role title is primary; person's name (if known) sits below as
             secondary. */}
         <div className="text-[13px] font-medium text-black leading-tight">
@@ -608,6 +750,8 @@ export default function BlueprintViewer() {
   const [activeRole, setActiveRole] = useState(null)
   const [glossaryTooltip, setGlossaryTooltip] = useState(null) // { key, top, left }
   const [pinnedPhases, setPinnedPhases] = useState(() => new Set())
+  const [phaseTooltip, setPhaseTooltip] = useState(null) // { id, top, left }
+  const [visiblePhaseIds, setVisiblePhaseIds] = useState(() => new Set())
   const togglePin = (phaseId, e) => {
     e.stopPropagation()
     setPinnedPhases(prev => {
@@ -630,6 +774,33 @@ export default function BlueprintViewer() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [glossaryTooltip])
+
+  // Track which phase columns are currently visible inside the scroll
+  // canvas so the progress dots can reflect viewport state. Each phase's
+  // header cell carries `id="phase-${phase.id}"`, and we observe them
+  // against the scrollRef container as the IntersectionObserver root.
+  useEffect(() => {
+    if (!scrollRef.current || !blueprint) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setVisiblePhaseIds(prev => {
+          const next = new Set(prev)
+          for (const entry of entries) {
+            const id = entry.target.id.replace(/^phase-/, '')
+            if (entry.isIntersecting) next.add(id)
+            else next.delete(id)
+          }
+          return next
+        })
+      },
+      { root: scrollRef.current, threshold: 0.4 },
+    )
+    blueprint.phases.forEach(phase => {
+      const el = document.getElementById(`phase-${phase.id}`)
+      if (el) observer.observe(el)
+    })
+    return () => observer.disconnect()
+  }, [blueprint])
 
   function openGlossary(key, event) {
     const entry = serviceBlueprintGlossary[key]
@@ -670,8 +841,9 @@ export default function BlueprintViewer() {
     <div className="h-screen flex flex-col bg-white overflow-hidden">
       {/* Row 1 — header bar: logo + title + quote + blueprint tabs.
           z-30 so the Roles popover (z-40 within this stacking context) can
-          paint above the source-badge / swimlane-labels rows below (z-10). */}
-      <div className="flex-shrink-0 border-b border-gray-200 px-4 flex items-end justify-between bg-white relative z-30">
+          paint above the source-badge / swimlane-labels rows below (z-10).
+          Bottom border is BP green and visually flows into the active tab. */}
+      <div className="flex-shrink-0 border-b border-bp-green px-4 flex items-end justify-between bg-white relative z-30">
         <div className="flex items-center gap-4 py-2">
           {/* Variant A: 3D Helios logo in place of the flat PNG header icon */}
           <Link
@@ -688,8 +860,8 @@ export default function BlueprintViewer() {
                 {blueprint.title}
               </div>
               {blueprint.subtitle && (
-                <div className="text-[13px] font-medium text-black leading-tight whitespace-nowrap">
-                  {blueprint.subtitle}
+                <div className="text-[13px] font-normal text-bp-dark-grey leading-tight whitespace-nowrap">
+                  {blueprint.subtitle} Service Blueprint
                 </div>
               )}
             </div>
@@ -721,7 +893,7 @@ export default function BlueprintViewer() {
                   to={`/blueprint/${bp.id}`}
                   className={`relative px-4 py-2 rounded-t-md border-t border-l border-r font-mono text-[10px] tracking-[0.1em] uppercase transition-colors ${
                     isActive
-                      ? 'bg-white border-gray-200 -mb-px text-bp-green font-medium z-10'
+                      ? 'bg-white border-bp-green -mb-px text-bp-green font-medium z-10'
                       : 'bg-gray-50 border-transparent text-bp-silver hover:text-bp-dark-grey hover:bg-gray-100'
                   }`}
                 >
@@ -735,25 +907,31 @@ export default function BlueprintViewer() {
 
       {/* Row 2 — controls: phase dots, role filter, reference buttons */}
       <div className="flex-shrink-0 border-b border-gray-200 px-4 py-2 flex items-center justify-between bg-white z-10 gap-6">
-        {/* Phase progress dots */}
+        {/* Phase progress dots — green if currently in the viewport, dark
+            green if the phase's detail panel is open, gray otherwise. */}
         <div className="flex items-center gap-1.5">
-          {blueprint.phases.map((phase) => (
-            <button
-              key={phase.id}
-              onClick={() => {
-                const el = document.getElementById(`phase-${phase.id}`)
-                el?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
-              }}
-              className="group relative"
-              title={phase.name}
-            >
-              <div className={`w-2 h-2 rounded-full transition-colors ${
-                selectedPhase?.id === phase.id
-                  ? 'bg-bp-green'
-                  : 'bg-gray-200 group-hover:bg-bp-light-green'
-              }`} />
-            </button>
-          ))}
+          {blueprint.phases.map((phase) => {
+            const isSelected = selectedPhase?.id === phase.id
+            const isVisible = visiblePhaseIds.has(phase.id)
+            const dotClass = isSelected
+              ? 'bg-bp-dark-green'
+              : isVisible
+                ? 'bg-bp-green'
+                : 'bg-gray-300 group-hover:bg-bp-light-green'
+            return (
+              <button
+                key={phase.id}
+                onClick={() => {
+                  const el = document.getElementById(`phase-${phase.id}`)
+                  el?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
+                }}
+                className="group relative"
+                title={phase.name}
+              >
+                <div className={`w-2 h-2 rounded-full transition-colors ${dotClass}`} />
+              </button>
+            )
+          })}
         </div>
 
         {/* Role filter */}
@@ -796,21 +974,14 @@ export default function BlueprintViewer() {
         <RowFilter swimlaneLabels={swimlaneLabels} />
       </div>
 
-      {/* Source badge */}
+      {/* Source badge — click "Research Sources" to spool the source list
+          out from behind the label, pause 5s on Alex, then marquee through
+          the rest. Once finished the user can drag-scrub the text. */}
       {blueprint.sourceLabel && (
-        <div className="flex-shrink-0 px-4 py-1.5 bg-gray-200 border-b border-gray-300 flex items-center gap-2">
-          <span className={`w-1.5 h-1.5 rounded-full ${
-            blueprint.sourceLabel.toLowerCase().includes('research') ? 'bg-bp-green' : 'bg-bp-silver'
-          }`} />
-          <span className="font-mono text-[9px] tracking-[0.1em] uppercase text-bp-dark-grey font-medium">
-            {blueprint.sourceLabel}
-          </span>
-          {blueprint.sources.length > 0 && (
-            <span className="font-mono text-[9px] text-bp-dark-grey ml-2">
-              {blueprint.sources.join(' · ')}
-            </span>
-          )}
-        </div>
+        <ResearchSourcesStrip
+          label={blueprint.sourceLabel}
+          sources={blueprint.sources}
+        />
       )}
 
       {/* Main canvas: single CSS grid. First column = swimlane labels,
@@ -831,17 +1002,19 @@ export default function BlueprintViewer() {
             // neutral white. The actions row is "the journey" — pale green.
             // Below that, zebra alternates rose-50 / gray-100 starting at output.
             const ROW_BG = {
-              header: 'bg-white',
+              header: 'bg-bp-green/85',
               location: 'bg-white',
               appState: 'bg-white',
               time: 'bg-white',
               actions: 'bg-bp-pale-green/30',
-              output: 'bg-rose-50',
-              frontstage: 'bg-gray-100',
-              backstage: 'bg-rose-50',
-              support: 'bg-gray-100',
-              systems: 'bg-rose-50',
-              roles: 'bg-gray-100',
+              // Desaturated mauve/maroon (was rose-50 #FFF1F2 — too pink).
+              output: 'bg-[#F5E8E2]',
+              // Navy-leaning light gray (was gray-100 #F3F4F6 — too neutral).
+              frontstage: 'bg-[#EAF0F8]',
+              backstage: 'bg-[#F5E8E2]',
+              support: 'bg-[#EAF0F8]',
+              systems: 'bg-[#F5E8E2]',
+              roles: 'bg-[#EAF0F8]',
             }
             const zebraBg = ROW_BG[row.key] || 'bg-white'
             // 2px dark gray separator under TIME — visual break between the
@@ -860,7 +1033,7 @@ export default function BlueprintViewer() {
                 <Fragment key={row.key}>
                   <button
                     onClick={(e) => openGlossary(row.key, e)}
-                    className="bg-bp-green text-white text-[11px] tracking-[0.05em] uppercase px-3 py-1 flex items-center border-r border-bp-dark-green relative cursor-pointer hover:bg-bp-green/90 transition-colors font-bold"
+                    className="bg-bp-green text-white text-[11px] tracking-tight uppercase px-3 py-1 flex items-center border-r border-bp-dark-green relative cursor-pointer hover:bg-bp-green/90 transition-colors font-bold"
                   >
                     <span>
                       {row.key === 'visibility' ? '── VISIBILITY ──' : '── INTERACT ──'}
@@ -868,14 +1041,30 @@ export default function BlueprintViewer() {
                     {triangle}
                   </button>
                   <div
-                    className="bg-white px-4 py-1 flex items-center gap-2 border-b border-gray-100"
+                    className="bg-white px-4 py-2 flex items-center gap-2 border-b border-gray-100"
                     style={{ gridColumn: `2 / span ${blueprint.phases.length}` }}
                   >
-                    <div className={`flex-1 border-t ${row.key === 'visibility' ? 'border-dashed border-bp-green/50' : 'border-dotted border-bp-silver/50'}`} />
-                    <span className={`font-mono text-[8px] tracking-[0.15em] uppercase ${row.key === 'visibility' ? 'text-bp-green/60' : 'text-bp-silver/60'}`}>
-                      {row.key === 'visibility' ? 'LINE OF VISIBILITY' : 'LINE OF INTERACTION'}
-                    </span>
-                    <div className={`flex-1 border-t ${row.key === 'visibility' ? 'border-dashed border-bp-green/50' : 'border-dotted border-bp-silver/50'}`} />
+                    {/* Repeat the label every ~3 phase columns so the line
+                        reads at any horizontal scroll position. Description
+                        is keyed to the primary user of this blueprint. */}
+                    {(() => {
+                      const labelCount = Math.max(1, Math.ceil(blueprint.phases.length / 3))
+                      const primaryRole = roles[blueprint.primaryUser]
+                      const userTitle = (primaryRole?.role || 'user').toUpperCase()
+                      const labelText = row.key === 'visibility'
+                        ? `LINE OF VISIBILITY: WHAT THE ${userTitle} SEES`
+                        : `LINE OF INTERACTION: BEHIND THE SCENES`
+                      return Array.from({ length: labelCount + 1 }).map((_, i) => (
+                        <Fragment key={i}>
+                          <div className="flex-1 border-t border-dashed border-bp-green/40" />
+                          {i < labelCount && (
+                            <span className="bg-white px-2 font-mono text-[9px] tracking-[0.18em] uppercase text-bp-silver whitespace-nowrap">
+                              {labelText}
+                            </span>
+                          )}
+                        </Fragment>
+                      ))
+                    })()}
                   </div>
                 </Fragment>
               )
@@ -902,6 +1091,7 @@ export default function BlueprintViewer() {
                           src={primaryRole.avatar}
                           alt={primaryRole.name}
                           className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                          style={{ transform: primaryRole.id === 'rvManager' ? 'scaleX(-1)' : undefined }}
                         />
                         <div className="absolute -bottom-1 -right-[14px] w-7 h-7 rounded-full bg-white border-2 border-white flex items-center justify-center overflow-hidden">
                           <img src={bpHelios} alt="BP" className="w-full h-full object-contain p-[2px]" />
@@ -909,7 +1099,7 @@ export default function BlueprintViewer() {
                       </div>
                     )}
                     <div className="w-full">
-                      <div className="text-[13px] tracking-[0.05em] uppercase text-white leading-tight font-bold">
+                      <div className="text-[13px] tracking-tight uppercase text-white leading-tight font-bold">
                         {blueprint.actionsLabel || 'Primary Actions'}
                       </div>
                       {blueprint.actionsDescription && (
@@ -923,14 +1113,14 @@ export default function BlueprintViewer() {
                 ) : (
                   <button
                     onClick={(e) => openGlossary(row.key, e)}
-                    className="bg-bp-green text-white text-[13px] tracking-[0.05em] uppercase px-3 py-2 flex items-start text-left border-r border-bp-dark-green border-b border-bp-dark-green/30 relative cursor-pointer hover:bg-bp-green/90 transition-colors font-bold"
+                    className="bg-bp-green text-white text-[13px] tracking-tight uppercase px-3 py-2 flex items-start text-left border-r border-bp-dark-green border-b border-bp-dark-green/30 relative cursor-pointer hover:bg-bp-green/90 transition-colors font-bold"
                   >
                     <span>{row.label || row.key.toUpperCase()}</span>
                     {triangle}
                   </button>
                 )}
                 {/* Phase data cells for this row */}
-                {blueprint.phases.map((phase) => {
+                {blueprint.phases.map((phase, phaseIdx) => {
                   const dimmed = activeRole && !phase.activeRoles.includes(activeRole)
                   const isHeader = row.key === 'header'
                   const pinned = pinnedPhases.has(phase.id)
@@ -938,28 +1128,44 @@ export default function BlueprintViewer() {
                     <div
                       key={phase.id}
                       id={isHeader ? `phase-${phase.id}` : undefined}
-                      onClick={isHeader ? () => setSelectedPhase(phase) : undefined}
-                      className={`${zebraBg} px-3 py-2 border-r border-gray-100 ${heavyDivider} transition-opacity duration-300 relative ${
+                      onClick={isHeader ? (e) => {
+                        // stopPropagation so the DetailPanel's outside-click
+                        // listener doesn't fire on this same click — that
+                        // race caused the open-close-open jitter.
+                        e.stopPropagation()
+                        setPhaseTooltip(null)
+                        // Toggle: clicking the same cell again closes.
+                        setSelectedPhase(prev => prev?.id === phase.id ? null : phase)
+                      } : undefined}
+                      onMouseEnter={isHeader ? (e) => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        setPhaseTooltip({
+                          id: phase.id,
+                          top: rect.bottom + 6,
+                          left: rect.left + rect.width / 2,
+                        })
+                      } : undefined}
+                      onMouseLeave={isHeader ? () => setPhaseTooltip(null) : undefined}
+                      className={`${zebraBg} ${['frontstage', 'backstage', 'support'].includes(row.key) ? 'px-5' : 'px-3'} ${['header', 'location', 'appState', 'time'].includes(row.key) ? 'py-1' : 'py-2'} border-r border-gray-100 ${heavyDivider} transition-opacity duration-300 relative ${
                         dimmed ? 'opacity-25' : ''
-                      } ${isHeader ? 'cursor-pointer hover:bg-bp-pale-green/30' : ''} ${
+                      } ${isHeader ? 'cursor-pointer hover:opacity-90' : ''} ${
                         isCentered ? 'text-center flex items-center justify-center' : ''
                       }`}
                     >
-                      {/* Pin toggle — top-left of phase header cells only.
-                          Visual toggle for now; not wired to any behavior yet. */}
+                      {/* Pin toggle — upper-left corner of the header cell.
+                          White, fills on pin. Sits opposite the [01] tag in
+                          the upper-right so the title remains truly centered. */}
                       {isHeader && (
                         <button
                           type="button"
                           onClick={(e) => togglePin(phase.id, e)}
                           aria-label={pinned ? 'Unpin phase' : 'Pin phase'}
                           aria-pressed={pinned}
-                          className={`absolute top-1.5 left-1.5 w-5 h-5 flex items-center justify-center transition-colors ${
-                            pinned ? 'text-bp-dark-green' : 'text-bp-silver hover:text-bp-dark-grey'
-                          }`}
+                          className="absolute top-2 left-2 w-5 h-5 flex items-center justify-center text-white transition-opacity hover:opacity-80"
                         >
                           <svg
                             viewBox="0 0 16 16"
-                            className="w-3.5 h-3.5"
+                            className="w-4 h-4"
                             fill={pinned ? 'currentColor' : 'none'}
                             stroke="currentColor"
                             strokeWidth="1.5"
@@ -971,7 +1177,7 @@ export default function BlueprintViewer() {
                           </svg>
                         </button>
                       )}
-                      {renderCellContent(row.key, phase, blueprint.systems)}
+                      {renderCellContent(row.key, phase, blueprint.systems, phaseIdx)}
                     </div>
                   )
                 })}
@@ -990,6 +1196,32 @@ export default function BlueprintViewer() {
         systems={blueprint.systems}
         onClose={() => setSelectedPhase(null)}
       />
+
+      {/* Phase-purpose tooltip — appears on header-cell hover. Portaled to
+          body so the grid's overflow doesn't clip it. */}
+      <AnimatePresence>
+        {phaseTooltip && PHASE_PURPOSES[phaseTooltip.id] && createPortal(
+          <motion.div
+            className="fixed z-50 w-72 bg-white border border-bp-green/30 shadow-lg p-3 pointer-events-none"
+            style={{
+              top: phaseTooltip.top,
+              left: phaseTooltip.left,
+              transform: 'translateX(-50%)',
+            }}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12 }}
+          >
+            {/* Notch on top edge pointing up toward the cell */}
+            <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-white border-l border-t border-bp-green/30 rotate-45" />
+            <p className="text-[11px] text-black leading-relaxed">
+              {PHASE_PURPOSES[phaseTooltip.id]}
+            </p>
+          </motion.div>,
+          document.body,
+        )}
+      </AnimatePresence>
 
       {/* Service blueprint glossary tooltip (fixed-position to escape overflow containers) */}
       <AnimatePresence>
@@ -1040,51 +1272,134 @@ export default function BlueprintViewer() {
 // ── Cell content renderer for the unified blueprint grid ────────────────
 // All text colors here are intentionally black for this pass — the user
 // asked for a single readable baseline before we tune the gray hierarchy.
-function renderCellContent(key, phase, systems) {
+// Parse strings like "1–2 days", "1-2 days", "3 days", "1 day", "Max 10 days"
+// into a numeric min/max range. Returns null/null for non-numeric labels
+// ("Ongoing", "—"), which fall back to text rendering.
+function parseTimeEstimate(str) {
+  if (!str || str === '—' || /ongoing/i.test(str)) return { min: null, max: null, rangeText: str || '' }
+  const range = str.match(/^(\d+)\s*[–-]\s*(\d+)\s*days?$/i)
+  if (range) {
+    const lo = +range[1], hi = +range[2]
+    return { min: lo, max: hi, rangeText: `${lo}–${hi} days` }
+  }
+  const single = str.match(/^(\d+)\s*days?$/i)
+  if (single) {
+    const v = +single[1]
+    return { min: v, max: v, rangeText: `${v} day${v === 1 ? '' : 's'}` }
+  }
+  // "Max 10 days" and similar — keep as-is text, no icon range.
+  return { min: null, max: null, rangeText: str }
+}
+
+function renderCellContent(key, phase, systems, phaseIdx) {
   switch (key) {
     case 'header':
+      // Title is the only flow content in the cell — true center alignment.
+      // [01] sits vertically centered on the right edge; pin sits in the
+      // upper-left; bottom-right triangle hints "hover for details".
       return (
-        <div className="font-mono text-[11px] tracking-[0.12em] uppercase text-black font-medium">
-          [ {String(phase.index).padStart(2, '0')} / {phase.name.toUpperCase()} ]
-        </div>
+        <>
+          <span className="text-[14px] font-bold text-white leading-tight tracking-tight select-none">
+            {upperKeepToR(phase.name)}
+          </span>
+          <span className="absolute top-1/2 -translate-y-1/2 right-2 font-mono text-[10px] text-white/85 leading-none select-none">
+            [{String(phase.index).padStart(2, '0')}]
+          </span>
+          <svg
+            viewBox="0 0 6 6"
+            className="absolute bottom-0 right-0 w-[6px] h-[6px] text-white/80 pointer-events-none"
+            aria-hidden="true"
+          >
+            <path d="M6 0V6H0z" fill="currentColor" />
+          </svg>
+        </>
       )
     case 'location':
       return (
-        <span className="font-mono text-[10px] tracking-[0.1em] text-black">
-          LOC: {phase.location}
-        </span>
-      )
-    case 'appState':
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] tracking-[0.1em] text-black border border-gray-300 bg-white">
-          STATUS: {phase.appState}
-        </span>
-      )
-    case 'time':
-      return (
-        <div className="flex items-center gap-2">
-          <div className="h-1 flex-1 bg-gray-200 relative overflow-hidden">
-            <div className="absolute inset-y-0 left-0 bg-bp-green/40 w-3/4" />
-          </div>
-          <span className="font-mono text-[10px] tracking-[0.1em] text-black whitespace-nowrap">
-            {phase.timeEstimate}
-          </span>
+        <div className="inline-flex items-center gap-1.5 text-black">
+          <LocationIcon location={phase.location} />
+          <span className="text-[11px]">{phase.location}</span>
         </div>
       )
-    case 'actions':
+    case 'appState': {
+      // Monochromatic green progression: lighter → darker as the workflow
+      // advances from "before use" through approval. Level returned as
+      // bg + text color pair for the pill.
+      const STATE_LEVELS = {
+        'BEFORE APPLICATION USE': { bg: '#F0F7F0', fg: '#666666' },
+        'PREPARATION':            { bg: '#D5E8D5', fg: '#004F00' },
+        'EXECUTION':              { bg: '#99CC99', fg: '#003300' },
+        'DRAFT ISSUES':           { bg: '#4D9E4D', fg: '#FFFFFF' },
+        'APPROVED':               { bg: '#007F00', fg: '#FFFFFF' },
+      }
+      const level = STATE_LEVELS[phase.appState] || { bg: '#FFFFFF', fg: '#000000' }
       return (
-        <ol className="space-y-1">
+        <span
+          className="inline-flex items-center px-2 py-0.5 font-mono text-[10px] tracking-[0.1em]"
+          style={{ backgroundColor: level.bg, color: level.fg }}
+        >
+          {phase.appState}
+        </span>
+      )
+    }
+    case 'time': {
+      // Two sun groups separated by "to": minimum count → maximum count.
+      // e.g. "1–2 days" reads as ☀  to  ☀☀. Non-numeric labels
+      // ("Ongoing", "Max 10 days", "—") fall back to plain text.
+      const { min, max, rangeText } = parseTimeEstimate(phase.timeEstimate)
+      if (min == null) {
+        const isOngoing = /ongoing/i.test(rangeText)
+        return (
+          <div className="flex items-center justify-center gap-1.5 w-full">
+            {isOngoing && (
+              <img src={infinityIcon} alt="" className="w-[14px] h-[14px] object-contain select-none flex-shrink-0" draggable={false} />
+            )}
+            <span className="text-[11px] text-bp-dark-grey">{rangeText}</span>
+          </div>
+        )
+      }
+      const sun = (key) => (
+        <img key={key} src={sunnyIcon} alt="" className="w-[14px] h-[14px] object-contain select-none" draggable={false} />
+      )
+      return (
+        <div className="flex items-center justify-center gap-2 w-full flex-wrap">
+          <div className="flex items-center gap-0.5">
+            {Array.from({ length: min }).map((_, i) => sun(`a${i}`))}
+          </div>
+          {max > min && (
+            <>
+              <span className="text-[11px] text-black">to</span>
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: max }).map((_, i) => sun(`b${i}`))}
+              </div>
+            </>
+          )}
+        </div>
+      )
+    }
+    case 'actions':
+      // Primary content row. Number column kept distinctive (bp-dark-green
+      // font-black). Action text matches the unified body color/size; only
+      // the slight weight bump (font-medium) signals it as primary.
+      return (
+        <ol className="space-y-1 pr-3">
           {phase.actions.map((action, i) => (
-            <li key={i} className="flex items-start gap-1.5 text-[11px] text-black leading-snug">
-              <span className="text-bp-dark-green font-black text-[11px] leading-snug">{i + 1}</span>
-              {action}
+            <li key={i} className="grid grid-cols-[1.4em_1fr] gap-2 items-start text-[11px] text-black leading-snug font-medium tracking-tight">
+              <span className="text-bp-dark-green font-black text-[13px] leading-snug text-center">
+                {i + 1}
+              </span>
+              <span>{action}</span>
             </li>
           ))}
         </ol>
       )
     case 'output':
       if (!phase.output?.length) {
-        return <span className="font-mono text-[9px] text-black">— NO OUTPUT —</span>
+        return (
+          <div className="flex items-center justify-center h-full">
+            <span className="text-[11px] text-bp-silver">N/A</span>
+          </div>
+        )
       }
       return (
         <div className="space-y-1.5">
@@ -1094,28 +1409,28 @@ function renderCellContent(key, phase, systems) {
         </div>
       )
     case 'frontstage':
-      return renderCellList(phase.frontstage)
+      return renderCellList(phase.frontstage, 'text-[11px] text-black')
     case 'backstage':
-      return renderCellList(phase.backstage)
+      return renderCellList(phase.backstage, 'text-[11px] text-black')
     case 'support':
       return (
         <div className="space-y-2">
           {phase.supportProcesses?.employee?.length > 0 && (
             <div>
-              <span className="font-mono text-[8px] tracking-[0.15em] text-black uppercase">EMPLOYEE</span>
-              {renderCellList(phase.supportProcesses.employee)}
+              <span className="font-mono text-[9px] tracking-[0.1em] text-black uppercase">EMPLOYEE</span>
+              {renderCellList(phase.supportProcesses.employee, 'text-[11px] text-black')}
             </div>
           )}
           {phase.supportProcesses?.technology?.length > 0 && (
             <div>
-              <span className="font-mono text-[8px] tracking-[0.15em] text-black uppercase">TECHNOLOGY</span>
-              {renderCellList(phase.supportProcesses.technology)}
+              <span className="font-mono text-[9px] tracking-[0.1em] text-black uppercase">TECHNOLOGY</span>
+              {renderCellList(phase.supportProcesses.technology, 'text-[11px] text-black')}
             </div>
           )}
         </div>
       )
     case 'systems': {
-      if (!phase.systemsUsed?.length) return <span className="font-mono text-[9px] text-black">—</span>
+      if (!phase.systemsUsed?.length) return <span className="font-mono text-[9px] text-bp-dark-grey">—</span>
       return (
         <div className="flex flex-wrap gap-1">
           {phase.systemsUsed.map(sysId => {
@@ -1124,7 +1439,7 @@ function renderCellContent(key, phase, systems) {
             return (
               <span
                 key={sysId}
-                className="flex items-center gap-1 px-1.5 py-0.5 bg-white border border-gray-200 font-mono text-[9px] tracking-[0.04em] text-black uppercase"
+                className="flex items-center gap-1 px-1.5 py-0.5 bg-white border border-gray-200 font-mono text-[9px] tracking-[0.1em] text-black uppercase"
               >
                 <SystemLogo name={name} className="w-3 h-3" />
                 {name}
@@ -1140,20 +1455,7 @@ function renderCellContent(key, phase, systems) {
           {phase.activeRoles.map(roleId => {
             const role = roles[roleId]
             if (!role) return null
-            const isBP = role.org === 'bp'
-            return (
-              <span
-                key={roleId}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[8px] font-mono tracking-[0.1em] uppercase border text-black"
-                style={{
-                  borderColor: isBP ? '#007F00' : '#FF9900',
-                  backgroundColor: isBP ? 'rgba(0,127,0,0.05)' : 'rgba(255,153,0,0.05)',
-                }}
-              >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: isBP ? '#007F00' : '#FF9900' }} />
-                {role.name}
-              </span>
-            )
+            return <RoleIcon key={roleId} role={role} />
           })}
         </div>
       )
@@ -1162,12 +1464,182 @@ function renderCellContent(key, phase, systems) {
   }
 }
 
-function renderCellList(items) {
-  if (!items?.length) return <span className="font-mono text-[11px] text-black">—</span>
+// Stand-in human icon used in the active-roles row. Color-coded by org
+// (BP green / operator navy). Hover shows a fixed-position card with the
+// role's photo + title — fixed positioning so it's not clipped by the
+// grid's overflow container.
+function RoleIcon({ role }) {
+  const isBp = role.org === 'bp'
+  const bg = isBp ? '#007F00' : '#1A2D5C'
+  const [hovered, setHovered] = useState(false)
+  const [coords, setCoords] = useState({ top: 0, left: 0 })
+  const ref = useRef(null)
+
+  const onEnter = () => {
+    if (!ref.current) return
+    const rect = ref.current.getBoundingClientRect()
+    setCoords({ top: rect.top, left: rect.left + rect.width / 2 })
+    setHovered(true)
+  }
+  const onLeave = () => setHovered(false)
+
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        onMouseEnter={onEnter}
+        onMouseLeave={onLeave}
+        onFocus={onEnter}
+        onBlur={onLeave}
+        aria-label={role.role}
+        className="w-5 h-5 rounded-full flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-bp-green"
+        style={{ backgroundColor: bg }}
+      >
+        <svg viewBox="0 0 16 16" className="w-3 h-3 text-white" fill="currentColor">
+          <circle cx="8" cy="5.5" r="2.6" />
+          <path d="M2.5 14.5c0-2.9 2.4-4.6 5.5-4.6s5.5 1.7 5.5 4.6z" />
+        </svg>
+      </button>
+      {hovered && createPortal(
+        <div
+          className="fixed z-[60] pointer-events-none"
+          style={{
+            top: coords.top - 8,
+            left: coords.left,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <div className="bg-white border border-gray-200 shadow-lg p-2 flex items-center gap-3 min-w-[180px]">
+            <div className="relative flex-shrink-0">
+              {role.avatar ? (
+                <img
+                  src={role.avatar}
+                  alt=""
+                  className="w-10 h-10 rounded-full object-cover"
+                  style={{
+                    border: `2px solid ${bg}`,
+                    transform: role.id === 'rvManager' ? 'scaleX(-1)' : undefined,
+                  }}
+                />
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: bg }}
+                >
+                  <svg viewBox="0 0 16 16" className="w-5 h-5 text-white" fill="currentColor">
+                    <circle cx="8" cy="5.5" r="2.6" />
+                    <path d="M2.5 14.5c0-2.9 2.4-4.6 5.5-4.6s5.5 1.7 5.5 4.6z" />
+                  </svg>
+                </div>
+              )}
+              {/* Org badge — circular white-fill with the org's logo,
+                  overlapping bottom-right. Mirrors the Roles drop-down. */}
+              <div
+                className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border-2 border-white flex items-center justify-center overflow-hidden shadow-sm"
+                aria-hidden="true"
+              >
+                <img
+                  src={isBp ? bpHelios : valarisMark}
+                  alt=""
+                  className="w-full h-full object-contain p-[1px]"
+                />
+              </div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[12px] font-medium text-black leading-tight">
+                {role.role}
+              </div>
+              {role.personName && (
+                <div className="text-[10px] italic text-bp-silver leading-tight mt-0.5">
+                  {role.personName}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
+// Monoline location icons. Compound locations (split by " / ") render two
+// atomic icons side-by-side. 20px, currentColor stroke at 1.5px so the
+// icons inherit the parent's text color.
+function LocationAtom({ part }) {
+  const common = {
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.5,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    className: 'w-5 h-5 flex-shrink-0',
+    'aria-hidden': 'true',
+  }
+  switch (part) {
+    case 'ONSHORE':
+      // Peaked-roof house with a door.
+      return (
+        <svg {...common}>
+          <path d="M4 11l8-7 8 7v9H4z" />
+          <path d="M9 20v-5h6v5" />
+          <path d="M9 11h6" />
+        </svg>
+      )
+    case 'OFFSHORE':
+      // Water drop — open-water shorthand, distinct from the derrick.
+      return (
+        <svg {...common}>
+          <path d="M12 2.5 C7 9, 5 13, 5 16 A7 7 0 0 0 19 16 C19 13, 17 9, 12 2.5 Z" />
+        </svg>
+      )
+    case 'NEAR RIG':
+    case 'ON RIG':
+      // Drilling derrick: peaked tower over a legged platform with waves.
+      return (
+        <svg {...common}>
+          <path d="M9 4l3 4 3-4" />
+          <path d="M12 4v9" />
+          <path d="M7 13h10v2H7z" />
+          <path d="M8 15v5" />
+          <path d="M16 15v5" />
+          <path d="M3 21c2-1 4 1 6 0s4 1 6 0 4 1 6 0" />
+        </svg>
+      )
+    case 'REGIONAL OFFICE':
+      // Tall office block with a location pin on top.
+      return (
+        <svg {...common}>
+          <path d="M5 21V8h14v13" />
+          <path d="M5 21h14" />
+          <path d="M9 12h2M9 16h2M13 12h2M13 16h2" />
+          <path d="M12 7c1.4 0 2.5-1.1 2.5-2.5S13.4 2 12 2 9.5 3.1 9.5 4.5 11 7 12 7z" />
+        </svg>
+      )
+    default:
+      return null
+  }
+}
+
+function LocationIcon({ location }) {
+  const parts = location.split(' / ').map(p => p.trim())
+  return (
+    <span className="inline-flex items-center gap-1">
+      {parts.map((part, i) => (
+        <LocationAtom key={`${part}-${i}`} part={part} />
+      ))}
+    </span>
+  )
+}
+
+function renderCellList(items, textClass = 'text-[11px] text-black') {
+  if (!items?.length) return <span className={`font-mono ${textClass}`}>—</span>
   return (
     <ul className="space-y-0.5">
       {items.map((item, i) => (
-        <li key={i} className="text-[11px] text-black leading-snug">
+        <li key={i} className={`${textClass} leading-snug`}>
           {item}
         </li>
       ))}

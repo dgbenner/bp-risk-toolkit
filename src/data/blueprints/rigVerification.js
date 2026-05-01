@@ -10,8 +10,9 @@ export const rigVerification = {
     'Creating, preparing, conducting and completing a Pre-Contract, Offshore Rig Verification.',
   sourceLabel: 'Research Sources',
   sources: [
-    'Alex Mowat — Lead Rig Verifier, Aberdeen, UK (2 interviews)',
-    'Subin Nair — Rig Verification Developer, London, UK (2 interviews)',
+    'Alex Mowat — Lead Rig Verifier, Aberdeen, UK (2 interviews: 08/19/2021, 10/14/2021)',
+    'Subin Nair — Rig Verification Developer, London, UK (2 interviews: 09/02/2021, 11/04/2021)',
+    'Lynne Egwuekwe — UX Researcher, London, UK (1 interview: 09/23/2021 + secondary research documents)',
   ],
   systems: [
     { id: 'salesforce', name: 'Salesforce', description: 'Master controller — most RV functions, SF email alerts' },
@@ -40,7 +41,7 @@ export const rigVerification = {
         { type: 'checklist', label: 'CHK / BARRIERS + BOWTIES SELECTION' },
       ],
       frontstage: [
-        'Face-to-face or call with Well Superintendent (Hasan)',
+        'Face-to-face or call with Well Superintendent',
         'Discussion of rig type, operation scope, timeline',
       ],
       backstage: [
@@ -101,7 +102,7 @@ export const rigVerification = {
         { type: 'checklist', label: 'CHK / GENERATED CHECKLISTS' },
       ],
       frontstage: [
-        'Well Superintendent (Hasan) reviews and agrees to ToR',
+        'Well Superintendent reviews and agrees to ToR',
         'Email notification sent to Well Superintendent',
       ],
       backstage: [
@@ -129,7 +130,7 @@ export const rigVerification = {
         'Schedule travel to rig',
       ],
       output: [
-        { type: 'doc', label: 'TOR-APPROVED' },
+        { type: 'doc', label: 'ToR-APPROVED' },
         { type: 'email', label: 'ALT / SF EMAIL NOTIFICATION' },
       ],
       frontstage: [
@@ -203,7 +204,7 @@ export const rigVerification = {
         'No system activity — verbal summary only',
       ],
       supportProcesses: {
-        employee: ['Well Delivery Team (Janos) attends closeout'],
+        employee: ['Well Delivery Team attends closeout'],
         technology: [],
       },
       systemsUsed: [],
@@ -293,7 +294,7 @@ export const rigVerification = {
         'Version control on report edits',
       ],
       supportProcesses: {
-        employee: ['Well Delivery Team (Janos) reviews and negotiates', 'Well Superintendent (Hasan) final agreement'],
+        employee: ['Well Delivery Team reviews and negotiates', 'Well Superintendent final agreement'],
         technology: ['Salesforce approval workflow'],
       },
       systemsUsed: ['salesforce'],

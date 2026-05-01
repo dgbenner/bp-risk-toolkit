@@ -1,6 +1,6 @@
 export const selfVerification = {
   id: 'self-verification',
-  title: 'Self Verification + Oversight',
+  title: 'Self Verification',
   subtitle: 'Continuous Operational Safety Monitoring',
   primaryUser: 'wsl',
   description:
