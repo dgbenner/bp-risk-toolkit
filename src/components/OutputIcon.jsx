@@ -8,6 +8,7 @@ import outlookIcon from '../assets/icons/outlook.png'
 import pdfIcon from '../assets/icons/pdf.png'
 import checklistIcon from '../assets/icons/checklist.png'
 import powerpointIcon from '../assets/icons/powerpoint.png'
+import powerbiIcon from '../assets/icons/powerbi.png'
 
 const MODIFIERS = ['DRAFT', 'REVIEWED', 'AGREED', 'APPROVED', 'COMPLETED', 'GENERATED', 'FINAL']
 const ACRONYMS = new Set(['SF', 'BI', 'RV', 'BP', 'TSV'])
@@ -59,13 +60,15 @@ function formatLabel(raw, type) {
 }
 
 // Mapping of output type → branded icon image. PDF used for "report"
-// since reports tend to be distributed as PDFs. Integration falls back
-// to the monoline SVG below.
+// since reports tend to be distributed as PDFs. Integration uses the
+// Power BI mark since the integration outputs in this project all flow
+// through Power BI dashboards.
 const ICON_IMAGE = {
   doc: wordIcon,
   checklist: checklistIcon,
   report: pdfIcon,
   email: outlookIcon,
+  integration: powerbiIcon,
   presentation: powerpointIcon,
 }
 

@@ -281,7 +281,6 @@ const wdwBullets = [
 export default function Landing() {
   const [showWdw, setShowWdw] = useState(false)
   const wdwRef = useRef(null)
-  const shakeRef = useRef(null)
 
   useEffect(() => {
     if (!showWdw) return
@@ -294,89 +293,8 @@ export default function Landing() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [showWdw])
 
-  // Helicopter-flyby rattle: tiny continuous rotation oscillation applied
-  // to the page wrapper so the whole window shakes as the heli passes by.
-  // Bell-shaped envelope: starts at 3s, peaks at 5s, settles by 10s.
-  useEffect(() => {
-    let frameId = null
-    let startTime = null
-
-    const RATTLE_START = 2000  // ms — heli first appears
-    const RATTLE_PEAK = 5000   // ms — heli passing in front
-    const RATTLE_END = 11000   // ms — heli has moved past
-    const FREQUENCY = 14       // Hz — rotor rattle pace
-    const MAX_AMPLITUDE = 0.06 // degrees — barely a tremor
-    // Slower wave on top of the rattle — gentle vertical sway suggesting
-    // air pressure / rotor wash, very subtle.
-    const WAVE_FREQUENCY = 3   // Hz
-    const WAVE_AMPLITUDE = 1.5 // px
-
-    // Hide overflow during the shake so the rotated wrapper doesn't expose
-    // the page background at the corners.
-    const prevOverflowX = document.body.style.overflowX
-    document.body.style.overflowX = 'hidden'
-
-    function animate(t) {
-      if (startTime === null) startTime = t
-      const elapsed = t - startTime
-
-      if (elapsed >= RATTLE_END) {
-        if (shakeRef.current) {
-          shakeRef.current.style.transform = ''
-          shakeRef.current.style.filter = ''
-        }
-        return
-      }
-
-      let envelope = 0
-      if (elapsed >= RATTLE_START && elapsed < RATTLE_PEAK) {
-        // Ease-in ramp-up — barely audible at first, builds toward peak.
-        const t = (elapsed - RATTLE_START) / (RATTLE_PEAK - RATTLE_START)
-        envelope = t * t * t
-      } else if (elapsed >= RATTLE_PEAK) {
-        // Ease-out ramp-down.
-        const t = (elapsed - RATTLE_PEAK) / (RATTLE_END - RATTLE_PEAK)
-        envelope = (1 - t) * (1 - t)
-      }
-
-      const phase = (elapsed / 1000) * FREQUENCY * Math.PI * 2
-      const rotation = Math.sin(phase) * MAX_AMPLITUDE * envelope
-      // Small high-frequency vertical bob layered with the rotation —
-      // rotor-bounce feel.
-      const bobY = Math.cos(phase) * 0.6 * envelope
-      const wavePhase = (elapsed / 1000) * WAVE_FREQUENCY * Math.PI * 2
-      const waveY = Math.sin(wavePhase) * WAVE_AMPLITUDE * envelope
-      // Very subtle scale breathe — barely perceptible "approaching /
-      // receding" cue. ±0.13%.
-      const breathePhase = (elapsed / 1000) * 1.5 * Math.PI * 2
-      const scale = 1 + Math.sin(breathePhase) * 0.0013 * envelope
-      // Very light blur that breathes with the envelope — peaks under 1px.
-      const blur = (0.6 * envelope).toFixed(2)
-
-      if (shakeRef.current) {
-        shakeRef.current.style.transform = `rotate(${rotation.toFixed(3)}deg) translateY(${(waveY + bobY).toFixed(2)}px) scale(${scale.toFixed(4)})`
-        shakeRef.current.style.filter = envelope > 0.01 ? `blur(${blur}px)` : ''
-      }
-      frameId = requestAnimationFrame(animate)
-    }
-
-    frameId = requestAnimationFrame(animate)
-    return () => {
-      if (frameId) cancelAnimationFrame(frameId)
-      if (shakeRef.current) {
-        shakeRef.current.style.transform = ''
-        shakeRef.current.style.filter = ''
-      }
-      document.body.style.overflowX = prevOverflowX
-    }
-  }, [])
-
   return (
-    <div
-      ref={shakeRef}
-      className="min-h-screen bg-white"
-      style={{ transformOrigin: 'center center', willChange: 'transform' }}
-    >
+    <div className="min-h-screen bg-white">
       {/* Dot grid background layer */}
       <div className="fixed inset-0 dot-grid pointer-events-none" />
 
