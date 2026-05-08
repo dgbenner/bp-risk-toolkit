@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { blueprintList } from '../data/blueprints'
 import { platformEcosystem as systems } from '../data/platformEcosystem'
@@ -17,18 +18,50 @@ const opensRight = new Set(systems.map(s => s.name))
 
 function PlatformEcosystem() {
   const [activeSystem, setActiveSystem] = useState(null)
+  const [tooltipPos, setTooltipPos] = useState(null) // { top, left, toRight }
   const containerRef = useRef(null)
+  const tooltipRef = useRef(null)
 
+  // Close on click outside both the chip strip and the portaled tooltip,
+  // and on resize (positions go stale).
   useEffect(() => {
     if (!activeSystem) return
     function handleClick(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setActiveSystem(null)
-      }
+      const c = containerRef.current
+      const t = tooltipRef.current
+      if ((c && c.contains(e.target)) || (t && t.contains(e.target))) return
+      setActiveSystem(null)
+      setTooltipPos(null)
+    }
+    function dismiss() {
+      setActiveSystem(null)
+      setTooltipPos(null)
     }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    window.addEventListener('resize', dismiss)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('resize', dismiss)
+    }
   }, [activeSystem])
+
+  function openOrToggle(sys, buttonEl) {
+    if (activeSystem === sys.name) {
+      setActiveSystem(null)
+      setTooltipPos(null)
+      return
+    }
+    const rect = buttonEl.getBoundingClientRect()
+    const toRight = opensRight.has(sys.name)
+    setActiveSystem(sys.name)
+    setTooltipPos({
+      top: rect.bottom + 8,
+      left: toRight ? rect.left : rect.right - 256, // tooltip width = 16rem
+      toRight,
+    })
+  }
+
+  const activeSys = systems.find(s => s.name === activeSystem)
 
   return (
     <motion.div
@@ -47,70 +80,70 @@ function PlatformEcosystem() {
       <div className="flex flex-wrap gap-1.5 relative max-w-md">
         {systems.map(sys => {
           const isActive = activeSystem === sys.name
-          const toRight = opensRight.has(sys.name)
           return (
-            <div key={sys.name} className="relative">
-              <button
-                onClick={() => setActiveSystem(isActive ? null : sys.name)}
-                className={`flex items-center gap-1.5 px-2.5 py-2 border transition-all duration-200 cursor-pointer relative shadow-[0_0_28px_rgba(137,207,240,0.3)] ${
-                  isActive
-                    ? 'bg-white border-bp-green'
-                    : 'bg-white border-gray-200 hover:border-bp-green/50'
-                }`}
+            <button
+              key={sys.name}
+              onClick={(e) => openOrToggle(sys, e.currentTarget)}
+              className={`flex items-center gap-1.5 px-2.5 py-2 border transition-all duration-200 cursor-pointer relative shadow-[0_0_28px_rgba(137,207,240,0.3)] ${
+                isActive
+                  ? 'bg-white border-bp-green'
+                  : 'bg-white border-gray-200 hover:border-bp-green/50'
+              }`}
+            >
+              <SystemLogo name={sys.name} className="w-5 h-5" />
+              <span className="font-mono text-[11px] tracking-[0.1em] text-bp-dark-grey">
+                {sys.label}
+              </span>
+              <svg
+                viewBox="0 0 6 6"
+                className="w-[6px] h-[6px] absolute bottom-0 right-0 text-bp-green transition-colors duration-200"
               >
-                <SystemLogo name={sys.name} className="w-5 h-5" />
-                <span className="font-mono text-[11px] tracking-[0.1em] text-bp-dark-grey">
-                  {sys.label}
-                </span>
-                <svg
-                  viewBox="0 0 6 6"
-                  className={`w-[6px] h-[6px] absolute bottom-0 right-0 transition-colors duration-200 ${
-                    isActive ? 'text-bp-green' : 'text-bp-green'
-                  }`}
-                >
-                  <path d="M6 0V6H0z" fill="currentColor" />
-                </svg>
-              </button>
-
-              <AnimatePresence>
-                {isActive && (
-                  <motion.div
-                    className={`absolute top-full mt-2 w-64 bg-white border border-bp-green/30 shadow-[0_0_36px_rgba(137,207,240,0.3)] z-20 p-4 ${
-                      toRight ? 'left-0' : 'right-0'
-                    }`}
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <div className={`absolute -top-[5px] w-2.5 h-2.5 bg-white border-l border-t border-bp-green/30 rotate-45 ${
-                      toRight ? 'left-4' : 'right-4'
-                    }`} />
-                    {/* Close X */}
-                    <button
-                      onClick={() => setActiveSystem(null)}
-                      className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center text-bp-silver hover:text-bp-dark-grey transition-colors cursor-pointer font-mono text-[11px] leading-none"
-                    >
-                      ×
-                    </button>
-                    <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-green mb-3 font-medium pr-5">
-                      {sys.label}
-                    </div>
-                    <ul className="space-y-1.5">
-                      {sys.bullets.map((bullet, i) => (
-                        <li key={i} className="flex items-start gap-2 text-[12px] text-bp-dark-grey leading-snug">
-                          <span className="text-bp-green text-[8px] mt-1 flex-shrink-0">▸</span>
-                          {bullet}
-                        </li>
-                      ))}
-                    </ul>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                <path d="M6 0V6H0z" fill="currentColor" />
+              </svg>
+            </button>
           )
         })}
       </div>
+
+      {/* Tooltip — portaled to body so it always paints above page content. */}
+      {createPortal(
+        <AnimatePresence>
+          {activeSys && tooltipPos && (
+            <motion.div
+              key="ecosystem-tooltip"
+              ref={tooltipRef}
+              className="fixed w-64 bg-white border border-bp-green/30 shadow-[0_0_36px_rgba(137,207,240,0.3)] z-[60] p-4"
+              style={{ top: tooltipPos.top, left: tooltipPos.left }}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+            >
+              <div className={`absolute -top-[5px] w-2.5 h-2.5 bg-white border-l border-t border-bp-green/30 rotate-45 ${
+                tooltipPos.toRight ? 'left-4' : 'right-4'
+              }`} />
+              <button
+                onClick={() => { setActiveSystem(null); setTooltipPos(null) }}
+                className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center text-bp-silver hover:text-bp-dark-grey transition-colors cursor-pointer font-mono text-[11px] leading-none"
+              >
+                ×
+              </button>
+              <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-green mb-3 font-medium pr-5">
+                {activeSys.label}
+              </div>
+              <ul className="space-y-1.5">
+                {activeSys.bullets.map((bullet, i) => (
+                  <li key={i} className="flex items-start gap-2 text-[12px] text-bp-dark-grey leading-snug">
+                    <span className="text-bp-green text-[8px] mt-1 flex-shrink-0">▸</span>
+                    {bullet}
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </motion.div>
   )
 }
@@ -163,16 +196,45 @@ function RegionList() {
   const [highlightIndex, setHighlightIndex] = useState(0)
   const containerRef = useRef(null)
 
+  const tooltipRef = useRef(null)
+  const [tooltipPos, setTooltipPos] = useState(null) // { top, left }
+
   useEffect(() => {
     if (!activeRegion) return
     function handleClick(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setActiveRegion(null)
-      }
+      const c = containerRef.current
+      const t = tooltipRef.current
+      if ((c && c.contains(e.target)) || (t && t.contains(e.target))) return
+      setActiveRegion(null)
+      setTooltipPos(null)
+    }
+    function dismiss() {
+      setActiveRegion(null)
+      setTooltipPos(null)
     }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    window.addEventListener('resize', dismiss)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('resize', dismiss)
+    }
   }, [activeRegion])
+
+  function openOrToggle(code, buttonEl) {
+    if (activeRegion === code) {
+      setActiveRegion(null)
+      setTooltipPos(null)
+      return
+    }
+    const rect = buttonEl.getBoundingClientRect()
+    setActiveRegion(code)
+    setTooltipPos({
+      // Tooltip opens downward (matching Platform Ecosystem). Caret on
+      // top of tooltip points up at the chip name.
+      top: rect.bottom + 8,
+      left: rect.left,
+    })
+  }
 
   // Cycle a transient underline through each region every ~4s as a passive
   // visual highlight. Pauses while a tooltip is open so it doesn't compete
@@ -219,7 +281,7 @@ function RegionList() {
                 transition={{ delay: 1.0 + i * 0.08, duration: 0.3 }}
               >
               <button
-                onClick={() => setActiveRegion(isActive ? null : r.code)}
+                onClick={(e) => openOrToggle(r.code, e.currentTarget)}
                 className={`relative font-mono text-[10px] tracking-[0.05em] uppercase cursor-pointer transition-colors select-none ${
                   isActive ? 'text-bp-green' : 'text-bp-dark-grey hover:text-bp-green'
                 }`}
@@ -235,37 +297,52 @@ function RegionList() {
                   aria-hidden="true"
                 />
               </button>
-
-              <AnimatePresence>
-                {isActive && (
-                  <motion.div
-                    className="absolute left-0 bottom-full mb-2 w-72 bg-white border border-bp-silver/30 shadow-[0_0_36px_rgba(137,207,240,0.3)] z-20 p-4"
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 4 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <div className="absolute -bottom-[5px] left-4 w-2.5 h-2.5 bg-white border-r border-b border-bp-silver/30 rotate-45" />
-                    <button
-                      onClick={() => setActiveRegion(null)}
-                      className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center text-bp-silver hover:text-bp-dark-grey transition-colors cursor-pointer font-mono text-[11px] leading-none"
-                    >
-                      ×
-                    </button>
-                    <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-green mb-3 font-medium pr-5">
-                      [ {r.code} ] {r.name}
-                    </div>
-                    <p className="text-[12px] text-bp-dark-grey leading-snug">
-                      {r.detail}
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
               </motion.div>
             </Fragment>
           )
         })}
       </div>
+
+      {/* Tooltip — portaled to body so it always paints above page content. */}
+      {createPortal(
+        <AnimatePresence>
+          {(() => {
+            const r = regions.find(x => x.code === activeRegion)
+            if (!r || !tooltipPos) return null
+            return (
+              <motion.div
+                key="region-tooltip"
+                ref={tooltipRef}
+                className="fixed w-72 bg-white border border-bp-green/30 shadow-[0_0_36px_rgba(137,207,240,0.3)] z-[60] p-4"
+                style={{
+                  top: tooltipPos.top,
+                  left: tooltipPos.left,
+                }}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.15 }}
+              >
+                {/* Caret on top of tooltip pointing up at the chip name. */}
+                <div className="absolute -top-[5px] left-4 w-2.5 h-2.5 bg-white border-l border-t border-bp-green/30 rotate-45" />
+                <button
+                  onClick={() => { setActiveRegion(null); setTooltipPos(null) }}
+                  className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center text-bp-silver hover:text-bp-dark-grey transition-colors cursor-pointer font-mono text-[11px] leading-none"
+                >
+                  ×
+                </button>
+                <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-green mb-3 font-medium pr-5">
+                  [ {r.code} ] {r.name}
+                </div>
+                <p className="text-[12px] text-bp-dark-grey leading-snug">
+                  {r.detail}
+                </p>
+              </motion.div>
+            )
+          })()}
+        </AnimatePresence>,
+        document.body,
+      )}
     </motion.div>
   )
 }
