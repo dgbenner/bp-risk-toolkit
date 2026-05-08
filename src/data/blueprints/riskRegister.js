@@ -150,7 +150,7 @@ export const riskRegister = {
       ],
       output: [
         { type: 'report', label: 'RPT / REGIONAL RISK SUMMARY' },
-        { type: 'report', label: 'RPT / RISK REGISTER EXPORT' },
+        { type: 'integration', label: 'INT / RISK REGISTER EXPORT' },
         { type: 'integration', label: 'INT / VP WELLS DASHBOARD' },
       ],
       frontstage: [
