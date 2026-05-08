@@ -1,8 +1,13 @@
 // Output icons + label formatting for the OUTPUT row.
 //
-// Layout: monoline icon on the left, sentence-case label to the right.
-// Icons sized larger than before (32px) as placeholders until the brand
-// icons are sourced. Label format: "Item — Modifier" (sentence case).
+// Layout: image icon on the left, sentence-case label to the right.
+// Brand icons (Word, Outlook, PDF, etc.) used where the doc type maps
+// cleanly. Monoline SVG fallbacks for types without a brand mapping.
+import wordIcon from '../assets/icons/word.png'
+import outlookIcon from '../assets/icons/outlook.png'
+import pdfIcon from '../assets/icons/pdf.png'
+import checklistIcon from '../assets/icons/checklist.png'
+import powerpointIcon from '../assets/icons/powerpoint.png'
 
 const MODIFIERS = ['DRAFT', 'REVIEWED', 'AGREED', 'APPROVED', 'COMPLETED', 'GENERATED', 'FINAL']
 const ACRONYMS = new Set(['SF', 'BI', 'RV', 'BP', 'TSV'])
@@ -53,69 +58,51 @@ function formatLabel(raw, type) {
   return { body, suffix: FORMAT_SUFFIX[type] }
 }
 
-const ICON_PATHS = {
-  // Page with folded corner + body text lines.
-  doc: (
-    <>
-      <path d="M6 2h8l4 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
-      <path d="M14 2v4a1 1 0 0 0 1 1h3" />
-      <path d="M8 12h8M8 15h8M8 18h5" />
-    </>
-  ),
-  // Clipboard with two checkmarks.
-  checklist: (
-    <>
-      <rect x="5" y="4" width="14" height="18" rx="1" />
-      <path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
-      <path d="M8 11l1.6 1.6L13 9.2" />
-      <path d="M8 17l1.6 1.6L13 15.2" />
-    </>
-  ),
-  // Page with bar chart.
-  report: (
-    <>
-      <path d="M6 2h8l4 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
-      <path d="M14 2v4a1 1 0 0 0 1 1h3" />
-      <path d="M9 18v-3" />
-      <path d="M12 18v-6" />
-      <path d="M15 18v-4" />
-    </>
-  ),
-  // Envelope.
-  email: (
-    <>
-      <rect x="3" y="6" width="18" height="13" rx="1" />
-      <path d="M3 7l9 7 9-7" />
-    </>
-  ),
-  // Two linked squares.
-  integration: (
-    <>
-      <rect x="3" y="3" width="8" height="8" rx="1" />
-      <rect x="13" y="13" width="8" height="8" rx="1" />
-      <path d="M11 7h2a2 2 0 0 1 2 2v2" />
-      <path d="M13 17h-2a2 2 0 0 1-2-2v-2" />
-    </>
-  ),
+// Mapping of output type → branded icon image. PDF used for "report"
+// since reports tend to be distributed as PDFs. Integration falls back
+// to the monoline SVG below.
+const ICON_IMAGE = {
+  doc: wordIcon,
+  checklist: checklistIcon,
+  report: pdfIcon,
+  email: outlookIcon,
+  presentation: powerpointIcon,
 }
 
+// Monoline fallback for types without a brand image (e.g., integration).
+const FALLBACK_ICON = (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-8 h-8 flex-shrink-0 text-bp-dark-grey"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="3" y="3" width="8" height="8" rx="1" />
+    <rect x="13" y="13" width="8" height="8" rx="1" />
+    <path d="M11 7h2a2 2 0 0 1 2 2v2" />
+    <path d="M13 17h-2a2 2 0 0 1-2-2v-2" />
+  </svg>
+)
+
 export default function OutputIcon({ type, label }) {
-  const path = ICON_PATHS[type] || ICON_PATHS.doc
+  const img = ICON_IMAGE[type]
   const { body, suffix } = formatLabel(label, type)
   return (
     <div className="flex items-center gap-1">
-      <svg
-        viewBox="0 0 24 24"
-        className="w-8 h-8 flex-shrink-0 text-bp-dark-grey"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        {path}
-      </svg>
+      {img ? (
+        <img
+          src={img}
+          alt=""
+          className="w-8 h-8 flex-shrink-0 object-contain select-none"
+          draggable={false}
+        />
+      ) : (
+        FALLBACK_ICON
+      )}
       <span className="text-[10px] text-black leading-tight">
         {body}
         {suffix && <span className="text-bp-silver"> ({suffix})</span>}
