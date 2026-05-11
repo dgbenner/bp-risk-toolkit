@@ -2,11 +2,27 @@ export const riskRegister = {
   id: 'risk-register',
   title: 'Risk Register',
   subtitle: 'Accumulative Risk Tracking & Resolution',
+  tagline: 'One ledger for every risk — nothing slips through.',
+  actionsLabel: 'Risk Engineer Actions',
+  actionsDescription: 'Journey of the Risk Engineer',
   primaryUser: 'riskEngineer',
   description:
     'The accumulative record of all identified risks across Risk Assessment and Rig Verification. Risks flow in, are categorized, assigned, tracked, and resolved.',
   sourceLabel: 'Informed synthesis',
-  sources: [],
+  sources: [
+    'Risk Aggregation Brief (.pdf, 04/2021)',
+    'VP Wells Quarterly Risk Review (.doc, 08/2021)',
+    'Closure Workflow Audit Phase 2 (.pdf, 10/2021)',
+  ],
+  // Risk lifecycle status colors used in the register dashboards.
+  severityLevels: [
+    { color: '#0E6B2E', label: 'Dark Green', description: 'Closed — risk fully resolved with verified evidence; archived for trend analysis.' },
+    { color: '#9DCB3D', label: 'Light Green', description: 'In Closure — evidence submitted by the Well Delivery Team, awaiting RV review and acceptance.' },
+    { color: '#FFD400', label: 'Yellow', description: 'Open — risk acknowledged and being tracked, no immediate action required.' },
+    { color: '#F26B1D', label: 'Orange', description: 'Active — remediation work in progress, owner assigned with target closure date.' },
+    { color: '#C8181C', label: 'Red', description: 'Escalated — raised to VP Wells / Regional Risk Engineer for review; missed targets or recurring exposure.' },
+    { color: '#A6A6A6', label: 'Grey', description: 'Uncategorized — recently intaked, awaiting triage by the Risk Engineer.' },
+  ],
   systems: [
     { id: 'risk-register', name: 'Risk Register', description: 'Salesforce-based risk tracking system' },
     { id: 'ra-link', name: 'Risk Assessment Link', description: 'Integration with Risk Assessment outputs' },

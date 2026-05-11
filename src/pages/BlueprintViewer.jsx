@@ -251,6 +251,99 @@ function GlossaryEntryRow({ entry, expanded, onToggle }) {
   )
 }
 
+// BP-wide user needs / goals that apply across all four blueprints.
+const USER_GOALS = [
+  {
+    title: 'Access to quality data',
+    description: 'Data stored in a central location so it can easily be tracked, found and retrieved.',
+  },
+  {
+    title: 'Automated / connected software',
+    description: 'Data moves seamlessly from one tool to another, saving time and reducing the risk of error.',
+  },
+  {
+    title: 'Connectivity',
+    description: 'Decent signal, internet speed & access to networks, no matter where the user is (rig included).',
+  },
+  {
+    title: 'Correct information',
+    description: 'Ability to easily and quickly find documents and the correct versions.',
+  },
+  {
+    title: 'Reduce re-work',
+    description: 'Reduce the amount of rework & repetition required if inputs need to be changed.',
+  },
+  {
+    title: 'Access to lessons learned',
+    description: 'Easily understand, record and track learnings from previous work, saving time, making better future decisions and easier onboarding of new users.',
+  },
+  {
+    title: 'Smarter working',
+    description: 'Reduce the workload of menial tasks for users so they are able to focus on critical and strategic tasks.',
+  },
+  {
+    title: 'Clear accountability',
+    description: 'Better communication from management, and visibility over who is doing what to provide clear objectives and prioritisation of tasks.',
+  },
+]
+
+function UserGoalsButton() {
+  const { open, setOpen, ref } = usePopover()
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(!open)} className={linkStyleClass(open)}>
+        USER GOALS
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="absolute top-full right-0 mt-2 w-[380px] max-h-[640px] flex flex-col bg-white border border-gray-200 shadow-lg z-40"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+          >
+            <button
+              onClick={() => setOpen(false)}
+              className="absolute top-0 right-0 w-8 h-8 flex items-center justify-center text-bp-silver hover:text-bp-dark-grey cursor-pointer font-mono text-[14px] leading-none z-10"
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-gray-200">
+              <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-green font-medium">
+                User Goals
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+              {USER_GOALS.map((goal, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span
+                    className="w-[22px] h-[22px] rounded-full bg-bp-green text-white text-[11px] leading-none flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{ fontFamily: '"Arial Black", Arial, Helvetica, sans-serif', fontWeight: 900 }}
+                  >
+                    <span style={{ transform: 'translate(-0.5px, -1px)', display: 'inline-block' }}>
+                      {i + 1}
+                    </span>
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[12px] font-bold text-black leading-tight">
+                      {goal.title}
+                    </div>
+                    <p className="text-[11px] text-bp-dark-grey leading-snug mt-0.5">
+                      {goal.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 function GlossaryButton() {
   const { open, setOpen, ref } = usePopover()
   const [filter, setFilter] = useState('all')
@@ -513,7 +606,7 @@ function RolesButton({ currentBlueprintId }) {
   )
 }
 
-function SeverityButton() {
+function SeverityButton({ levels = severityLevels }) {
   const { open, setOpen, ref } = usePopover()
   return (
     <div className="relative" ref={ref}>
@@ -523,7 +616,7 @@ function SeverityButton() {
       <AnimatePresence>
         {open && (
           <motion.div
-            className="absolute top-full right-0 mt-2 w-60 bg-white border border-gray-200 shadow-lg z-40 pt-8 pb-3"
+            className="absolute top-full right-0 mt-2 w-[320px] bg-white border border-gray-200 shadow-lg z-40 pt-8 pb-3"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
@@ -538,18 +631,28 @@ function SeverityButton() {
             </button>
             <div className="px-4">
               <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-bp-green mb-3 font-medium">
-                Finding Severity
+                Severity Legend
               </div>
-              <div className="space-y-1.5">
-                {severityLevels.map((level, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
+              <div className="space-y-2">
+                {levels.map((level, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
                     <span
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: level.color }}
+                      className="w-3 h-3 rounded-sm flex-shrink-0 mt-[3px]"
+                      style={{
+                        backgroundColor: level.color,
+                        border: level.borderColor ? `1px solid ${level.borderColor}` : undefined,
+                      }}
                     />
-                    <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-bp-dark-grey">
-                      {level.label}
-                    </span>
+                    <div className="min-w-0">
+                      <div className="font-mono text-[10px] tracking-[0.08em] uppercase text-black font-medium">
+                        {level.label}
+                      </div>
+                      {level.description && (
+                        <div className="text-[10px] text-bp-dark-grey leading-snug mt-0.5">
+                          {level.description}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -793,7 +896,14 @@ export default function BlueprintViewer() {
           return next
         })
       },
-      { root: scrollRef.current, threshold: 0.4 },
+      {
+        root: scrollRef.current,
+        threshold: 0.4,
+        // Effectively only check horizontal intersection — vertical scroll
+        // would otherwise toggle dots off when phase headers leave the
+        // top of the viewport.
+        rootMargin: '9999px 0px 9999px 0px',
+      },
     )
     blueprint.phases.forEach(phase => {
       const el = document.getElementById(`phase-${phase.id}`)
@@ -880,9 +990,10 @@ export default function BlueprintViewer() {
         {/* Right column: reference links on top, blueprint tabs on bottom */}
         <div className="flex flex-col items-end">
           <div className="flex items-center gap-4 pt-2 pb-[10px]">
+            <UserGoalsButton />
             <RolesButton currentBlueprintId={blueprintId} />
             <GlossaryButton />
-            <SeverityButton />
+            <SeverityButton levels={blueprint.severityLevels} />
           </div>
           <div className="flex items-end gap-0.5">
             {sorted.map(bp => {
@@ -905,39 +1016,12 @@ export default function BlueprintViewer() {
         </div>
       </div>
 
-      {/* Row 2 — controls: phase dots, role filter, reference buttons */}
+      {/* Row 2 — controls: role filter, reference buttons */}
       <div className="flex-shrink-0 border-b border-gray-200 px-4 py-2 flex items-center justify-between bg-white z-10 gap-6">
-        {/* Phase progress dots — green if currently in the viewport, dark
-            green if the phase's detail panel is open, gray otherwise. */}
-        <div className="flex items-center gap-1.5">
-          {blueprint.phases.map((phase) => {
-            const isSelected = selectedPhase?.id === phase.id
-            const isVisible = visiblePhaseIds.has(phase.id)
-            const dotClass = isSelected
-              ? 'bg-bp-dark-green'
-              : isVisible
-                ? 'bg-bp-green'
-                : 'bg-gray-300 group-hover:bg-bp-light-green'
-            return (
-              <button
-                key={phase.id}
-                onClick={() => {
-                  const el = document.getElementById(`phase-${phase.id}`)
-                  el?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
-                }}
-                className="group relative"
-                title={phase.name}
-              >
-                <div className={`w-2 h-2 rounded-full transition-colors ${dotClass}`} />
-              </button>
-            )
-          })}
-        </div>
-
         {/* Role filter */}
         <div className="flex items-center gap-2">
           <span className="font-mono text-[8px] tracking-[0.15em] uppercase text-bp-silver">
-            FILTER:
+            Filter by Role:
           </span>
           <button
             onClick={() => setActiveRole(null)}
@@ -984,207 +1068,243 @@ export default function BlueprintViewer() {
         />
       )}
 
-      {/* Main canvas: single CSS grid. First column = swimlane labels,
-          remaining columns = phase data. Row heights auto-size to the
-          tallest cell across all columns so labels stay aligned with
-          their content. The freeze on the left column was removed for
-          this pass — to be restored after row heights settle. */}
+      {/* Main canvas: HTML table with sticky first column (rail) + sticky
+          pinned phase columns. Tables let position:sticky escape the
+          column track's containing block (which a CSS grid item cannot),
+          so the rail and pinned columns stay anchored through the full
+          horizontal scroll range. Row heights auto-size to the tallest
+          cell as before. */}
       <div ref={scrollRef} className="flex-1 overflow-auto">
-        <div
-          className="grid bg-white"
+        <table
+          className="bg-white"
+          cellPadding={0}
+          cellSpacing={0}
           style={{
-            gridTemplateColumns: `140px repeat(${blueprint.phases.length}, minmax(260px, 300px))`,
+            borderCollapse: 'collapse',
+            borderSpacing: 0,
+            tableLayout: 'fixed',
+            width: 140 + blueprint.phases.length * 280,
           }}
         >
-          {swimlaneLabels.map((row) => {
-            const isLine = row.key === 'visibility' || row.key === 'interaction'
-            // Per-row background. Top stack (header/location/appState/time) is
-            // neutral white. The actions row is "the journey" — pale green.
-            // Below that, zebra alternates rose-50 / gray-100 starting at output.
-            const ROW_BG = {
-              header: 'bg-bp-green/85',
-              location: 'bg-white',
-              appState: 'bg-white',
-              time: 'bg-white',
-              actions: 'bg-bp-pale-green/30',
-              // Desaturated mauve/maroon (was rose-50 #FFF1F2 — too pink).
-              output: 'bg-[#F5E8E2]',
-              // Navy-leaning light gray (was gray-100 #F3F4F6 — too neutral).
-              frontstage: 'bg-[#EAF0F8]',
-              backstage: 'bg-[#F5E8E2]',
-              support: 'bg-[#EAF0F8]',
-              systems: 'bg-[#F5E8E2]',
-              roles: 'bg-[#EAF0F8]',
-            }
-            const zebraBg = ROW_BG[row.key] || 'bg-white'
-            // 2px dark gray separator under TIME — visual break between the
-            // identifying-data stack above and the journey/output rows below.
-            const heavyDivider = row.key === 'time' ? 'border-b-2 border-bp-dark-grey' : 'border-b border-gray-100'
-            const hasGlossary = serviceBlueprintGlossary[row.key]
-            const triangle = hasGlossary ? (
-              <svg viewBox="0 0 6 6" className="w-[6px] h-[6px] absolute bottom-0 right-0 text-white">
-                <path d="M6 0V6H0z" fill="currentColor" />
-              </svg>
-            ) : null
+          <colgroup>
+            <col style={{ width: '140px' }} />
+            {blueprint.phases.map(phase => (
+              <col key={phase.id} style={{ width: '280px' }} />
+            ))}
+          </colgroup>
+          <tbody>
+            {swimlaneLabels.map((row) => {
+              const isLine = row.key === 'visibility' || row.key === 'interaction'
+              const ROW_BG = {
+                header: 'bg-[#269226]',
+                location: 'bg-white',
+                appState: 'bg-white',
+                time: 'bg-white',
+                actions: 'bg-[#F2F7F2]',
+                output: 'bg-[#FAF1ED]',
+                frontstage: 'bg-[#F1F4F9]',
+                backstage: 'bg-[#FAF1ED]',
+                support: 'bg-[#F1F4F9]',
+                systems: 'bg-[#FAF1ED]',
+                roles: 'bg-[#F1F4F9]',
+              }
+              const zebraBg = ROW_BG[row.key] || 'bg-white'
+              const heavyDivider = row.key === 'time' ? 'border-b-2 border-bp-dark-grey' : 'border-b border-gray-100'
+              const hasGlossary = serviceBlueprintGlossary[row.key]
+              const triangle = hasGlossary ? (
+                <svg viewBox="0 0 6 6" className="w-[6px] h-[6px] absolute bottom-0 right-0 text-white">
+                  <path d="M6 0V6H0z" fill="currentColor" />
+                </svg>
+              ) : null
 
-            // Lines of visibility/interaction span all phase columns.
-            if (isLine) {
-              return (
-                <Fragment key={row.key}>
-                  <button
-                    onClick={(e) => openGlossary(row.key, e)}
-                    className="bg-bp-green text-white text-[11px] tracking-tight uppercase px-3 py-1 flex items-center border-r border-bp-dark-green relative cursor-pointer hover:bg-bp-green/90 transition-colors font-bold"
-                  >
-                    <span>
-                      {row.key === 'visibility' ? '── VISIBILITY ──' : '── INTERACT ──'}
-                    </span>
-                    {triangle}
-                  </button>
-                  <div
-                    className="bg-white px-4 py-2 flex items-center gap-2 border-b border-gray-100"
-                    style={{ gridColumn: `2 / span ${blueprint.phases.length}` }}
-                  >
-                    {/* Repeat the label every ~3 phase columns so the line
-                        reads at any horizontal scroll position. Description
-                        is keyed to the primary user of this blueprint. */}
-                    {(() => {
-                      const labelCount = Math.max(1, Math.ceil(blueprint.phases.length / 3))
-                      const primaryRole = roles[blueprint.primaryUser]
-                      const userTitle = (primaryRole?.role || 'user').toUpperCase()
-                      const labelText = row.key === 'visibility'
-                        ? `LINE OF VISIBILITY: WHAT THE ${userTitle} SEES`
-                        : `LINE OF INTERACTION: BEHIND THE SCENES`
-                      return Array.from({ length: labelCount + 1 }).map((_, i) => (
-                        <Fragment key={i}>
-                          <div className="flex-1 border-t border-dashed border-bp-green/40" />
-                          {i < labelCount && (
-                            <span className="bg-white px-2 font-mono text-[9px] tracking-[0.18em] uppercase text-bp-silver whitespace-nowrap">
-                              {labelText}
-                            </span>
-                          )}
-                        </Fragment>
-                      ))
-                    })()}
-                  </div>
-                </Fragment>
-              )
-            }
-
-            // Actions row label gets the special primary-user headshot +
-            // caption treatment (carried over from the old left rail).
-            const isActionsRow = row.key === 'actions'
-            const primaryRole = isActionsRow ? roles[blueprint.primaryUser] : null
-            // Short, identifying rows are centered horizontally.
-            const isCentered = ['header', 'location', 'appState'].includes(row.key)
-
-            return (
-              <Fragment key={row.key}>
-                {/* Label cell */}
-                {isActionsRow ? (
-                  <button
-                    onClick={(e) => openGlossary(row.key, e)}
-                    className="bg-bp-green text-white px-3 py-3 flex flex-col items-start gap-3 text-left border-r border-bp-dark-green border-b border-bp-dark-green/30 relative cursor-pointer hover:bg-bp-green/90 transition-colors"
-                  >
-                    {primaryRole?.avatar && (
-                      <div className="relative flex-shrink-0">
-                        <img
-                          src={primaryRole.avatar}
-                          alt={primaryRole.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-white"
-                          style={{ transform: primaryRole.id === 'rvManager' ? 'scaleX(-1)' : undefined }}
-                        />
-                        <div className="absolute -bottom-1 -right-[14px] w-7 h-7 rounded-full bg-white border-2 border-white flex items-center justify-center overflow-hidden">
-                          <img src={bpHelios} alt="BP" className="w-full h-full object-contain p-[2px]" />
-                        </div>
-                      </div>
-                    )}
-                    <div className="w-full">
-                      <div className="text-[13px] tracking-tight uppercase text-white leading-tight font-bold">
-                        {blueprint.actionsLabel || 'Primary Actions'}
-                      </div>
-                      {blueprint.actionsDescription && (
-                        <div className="text-[10px] italic text-white leading-snug mt-1">
-                          {blueprint.actionsDescription}
-                        </div>
-                      )}
-                    </div>
-                    {triangle}
-                  </button>
-                ) : (
-                  <button
-                    onClick={(e) => openGlossary(row.key, e)}
-                    className="bg-bp-green text-white text-[13px] tracking-tight uppercase px-3 py-2 flex items-start text-left border-r border-bp-dark-green border-b border-bp-dark-green/30 relative cursor-pointer hover:bg-bp-green/90 transition-colors font-bold"
-                  >
-                    <span>{row.label || row.key.toUpperCase()}</span>
-                    {triangle}
-                  </button>
-                )}
-                {/* Phase data cells for this row */}
-                {blueprint.phases.map((phase, phaseIdx) => {
-                  const dimmed = activeRole && !phase.activeRoles.includes(activeRole)
-                  const isHeader = row.key === 'header'
-                  const pinned = pinnedPhases.has(phase.id)
-                  return (
-                    <div
-                      key={phase.id}
-                      id={isHeader ? `phase-${phase.id}` : undefined}
-                      onClick={isHeader ? (e) => {
-                        // stopPropagation so the DetailPanel's outside-click
-                        // listener doesn't fire on this same click — that
-                        // race caused the open-close-open jitter.
-                        e.stopPropagation()
-                        setPhaseTooltip(null)
-                        // Toggle: clicking the same cell again closes.
-                        setSelectedPhase(prev => prev?.id === phase.id ? null : phase)
-                      } : undefined}
-                      onMouseEnter={isHeader ? (e) => {
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        setPhaseTooltip({
-                          id: phase.id,
-                          top: rect.bottom + 6,
-                          left: rect.left + rect.width / 2,
-                        })
-                      } : undefined}
-                      onMouseLeave={isHeader ? () => setPhaseTooltip(null) : undefined}
-                      className={`${zebraBg} ${['frontstage', 'backstage', 'support'].includes(row.key) ? 'px-5' : 'px-3'} ${['header', 'location', 'appState', 'time'].includes(row.key) ? 'py-1' : 'py-2'} border-r border-gray-100 ${heavyDivider} transition-opacity duration-300 relative ${
-                        dimmed ? 'opacity-25' : ''
-                      } ${isHeader ? 'cursor-pointer hover:opacity-90' : ''} ${
-                        isCentered ? 'text-center flex items-center justify-center' : ''
-                      }`}
+              // Lines of visibility/interaction span every phase column.
+              if (isLine) {
+                return (
+                  <tr key={row.key}>
+                    <td
+                      onClick={(e) => openGlossary(row.key, e)}
+                      className="bg-bp-green text-white text-[11px] tracking-tight uppercase px-3 py-1 border-r border-bp-dark-green border-b border-bp-dark-green/30 relative cursor-pointer hover:bg-bp-green/90 transition-colors font-extrabold align-middle"
+                      style={{ position: 'sticky', left: 0, zIndex: 30 }}
                     >
-                      {/* Pin toggle — upper-left corner of the header cell.
-                          White, fills on pin. Sits opposite the [01] tag in
-                          the upper-right so the title remains truly centered. */}
-                      {isHeader && (
-                        <button
-                          type="button"
-                          onClick={(e) => togglePin(phase.id, e)}
-                          aria-label={pinned ? 'Unpin phase' : 'Pin phase'}
-                          aria-pressed={pinned}
-                          className="absolute top-2 left-2 w-5 h-5 flex items-center justify-center text-white transition-opacity hover:opacity-80"
-                        >
-                          <svg
-                            viewBox="0 0 16 16"
-                            className="w-4 h-4"
-                            fill={pinned ? 'currentColor' : 'none'}
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                      <span>
+                        {row.key === 'visibility' ? '── VISIBILITY ──' : '── INTERACT ──'}
+                      </span>
+                      {triangle}
+                    </td>
+                    <td
+                      colSpan={blueprint.phases.length}
+                      className="bg-white px-4 py-2 border-b border-gray-100"
+                    >
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const labelCount = Math.max(1, Math.ceil(blueprint.phases.length / 3))
+                          const primaryRole = roles[blueprint.primaryUser]
+                          const userTitle = (primaryRole?.role || 'user').toUpperCase()
+                          const labelText = row.key === 'visibility'
+                            ? `LINE OF VISIBILITY: EVERYTHING ABOVE IS WHAT THE ${userTitle} SEES`
+                            : `LINE OF INTERACTION: EVERYTHING BELOW IS BEHIND THE SCENES FROM THE ${userTitle}`
+                          return Array.from({ length: labelCount + 1 }).map((_, i) => (
+                            <Fragment key={i}>
+                              <div className="flex-1 border-t border-dashed border-bp-green/40" />
+                              {i < labelCount && (
+                                <span className="bg-white px-2 font-mono text-[9px] tracking-[0.18em] uppercase text-bp-silver whitespace-nowrap">
+                                  {labelText}
+                                </span>
+                              )}
+                            </Fragment>
+                          ))
+                        })()}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              }
+
+              const isActionsRow = row.key === 'actions'
+              const primaryRole = isActionsRow ? roles[blueprint.primaryUser] : null
+              const isCentered = ['header', 'location', 'appState'].includes(row.key)
+              const verticalAlign = isCentered ? 'align-middle' : 'align-top'
+              const centerText = isCentered ? 'text-center' : ''
+
+              return (
+                <tr key={row.key}>
+                  {/* Rail cell */}
+                  {isActionsRow ? (
+                    <td
+                      onClick={(e) => openGlossary(row.key, e)}
+                      className="bg-bp-green text-white px-3 py-3 text-left border-r border-bp-dark-green border-b border-bp-dark-green/30 relative cursor-pointer hover:bg-bp-green/90 transition-colors align-top"
+                      style={{ position: 'sticky', left: 0, zIndex: 30 }}
+                    >
+                      <div className="flex flex-col items-start gap-3">
+                        {primaryRole?.avatar && (
+                          <div className="relative flex-shrink-0">
+                            <img
+                              src={primaryRole.avatar}
+                              alt={primaryRole.name}
+                              className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                              style={{ transform: primaryRole.id === 'rvManager' ? 'scaleX(-1)' : undefined }}
+                            />
+                            <div className="absolute -bottom-1 -right-[14px] w-7 h-7 rounded-full bg-white border-2 border-white flex items-center justify-center overflow-hidden">
+                              <img src={bpHelios} alt="BP" className="w-full h-full object-contain p-[2px]" />
+                            </div>
+                          </div>
+                        )}
+                        <div className="w-full">
+                          <div className="text-[13px] tracking-tight uppercase text-white leading-tight font-extrabold">
+                            {blueprint.actionsLabel || 'Primary Actions'}
+                          </div>
+                          {blueprint.actionsDescription && (
+                            <div className="text-[10px] italic text-white leading-snug mt-1">
+                              {blueprint.actionsDescription}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {triangle}
+                    </td>
+                  ) : (
+                    <td
+                      onClick={(e) => openGlossary(row.key, e)}
+                      className="bg-bp-green text-white text-[13px] tracking-tight uppercase px-3 py-2 text-left border-r border-bp-dark-green border-b border-bp-dark-green/30 relative cursor-pointer hover:bg-bp-green/90 transition-colors font-extrabold align-top"
+                      style={{ position: 'sticky', left: 0, zIndex: 30 }}
+                    >
+                      <span>{row.label || row.key.toUpperCase()}</span>
+                      {triangle}
+                    </td>
+                  )}
+                  {/* Phase data cells */}
+                  {blueprint.phases.map((phase, phaseIdx) => {
+                    const dimmed = activeRole && !phase.activeRoles.includes(activeRole)
+                    const isHeader = row.key === 'header'
+                    const pinned = pinnedPhases.has(phase.id)
+                    const pinnedOrderIdx = pinned
+                      ? blueprint.phases.filter(p => pinnedPhases.has(p.id)).findIndex(p => p.id === phase.id)
+                      : -1
+                    const stickyStyle = pinned
+                      ? { position: 'sticky', left: 140 + pinnedOrderIdx * 280, zIndex: 20 }
+                      : undefined
+                    return (
+                      <td
+                        key={phase.id}
+                        id={isHeader ? `phase-${phase.id}` : undefined}
+                        onClick={isHeader ? (e) => {
+                          e.stopPropagation()
+                          setPhaseTooltip(null)
+                          setSelectedPhase(prev => prev?.id === phase.id ? null : phase)
+                        } : undefined}
+                        onMouseEnter={isHeader ? (e) => {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setPhaseTooltip({
+                            id: phase.id,
+                            top: rect.bottom + 6,
+                            left: rect.left + rect.width / 2,
+                          })
+                        } : undefined}
+                        onMouseLeave={isHeader ? () => setPhaseTooltip(null) : undefined}
+                        style={stickyStyle}
+                        className={`${zebraBg} ${['frontstage', 'backstage', 'support'].includes(row.key) ? 'px-5' : 'px-3'} ${['header', 'location', 'appState', 'time'].includes(row.key) ? 'py-1' : 'py-2'} border-r border-gray-100 ${heavyDivider} transition-opacity duration-300 relative ${
+                          dimmed ? 'opacity-25' : ''
+                        } ${isHeader ? 'cursor-pointer hover:opacity-90' : ''} ${verticalAlign} ${centerText}`}
+                      >
+                        {isHeader && (
+                          <button
+                            type="button"
+                            onClick={(e) => togglePin(phase.id, e)}
+                            aria-label={pinned ? 'Unpin phase' : 'Pin phase'}
+                            aria-pressed={pinned}
+                            className="absolute top-2 left-2 w-5 h-5 flex items-center justify-center text-white transition-opacity hover:opacity-80"
                           >
-                            <path d="M10.5 2.5l3 3-1.5 1.5-1 4-2.5-2.5L4 13l-.5-.5L8 8l-2.5-2.5 4-1z" />
-                            <path d="M3.5 12.5l-1 1" />
-                          </svg>
-                        </button>
-                      )}
-                      {renderCellContent(row.key, phase, blueprint.systems, phaseIdx)}
-                    </div>
-                  )
-                })}
-              </Fragment>
-            )
-          })}
-        </div>
+                            <svg
+                              viewBox="0 0 16 16"
+                              className="w-4 h-4"
+                              fill={pinned ? 'currentColor' : 'none'}
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M10.5 2.5l3 3-1.5 1.5-1 4-2.5-2.5L4 13l-.5-.5L8 8l-2.5-2.5 4-1z" />
+                              <path d="M3.5 12.5l-1 1" />
+                            </svg>
+                          </button>
+                        )}
+                        {renderCellContent(row.key, phase, blueprint.systems, phaseIdx)}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Phase progress dots — centered above the platform ecosystem strip.
+          Green if currently in the viewport, dark green if the phase's
+          detail panel is open, gray otherwise. */}
+      <div className="flex-shrink-0 bg-white py-2 flex items-center justify-center gap-1.5">
+        {blueprint.phases.map((phase) => {
+          const isSelected = selectedPhase?.id === phase.id
+          const isVisible = visiblePhaseIds.has(phase.id)
+          const dotClass = isSelected
+            ? 'bg-bp-dark-green'
+            : isVisible
+              ? 'bg-bp-green'
+              : 'bg-gray-300 group-hover:bg-bp-light-green'
+          return (
+            <button
+              key={phase.id}
+              onClick={() => {
+                const el = document.getElementById(`phase-${phase.id}`)
+                el?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
+              }}
+              className="group relative"
+              title={phase.name}
+            >
+              <div className={`w-2 h-2 rounded-full transition-colors ${dotClass}`} />
+            </button>
+          )
+        })}
       </div>
 
       {/* Bottom bar — Platform Ecosystem (matches landing page label + style) */}
@@ -1323,8 +1443,10 @@ function renderCellContent(key, phase, systems, phaseIdx) {
       )
     case 'appState': {
       // Monochromatic green progression: lighter → darker as the workflow
-      // advances from "before use" through approval. Level returned as
-      // bg + text color pair for the pill.
+      // advances from "before use" through approval. The darker states
+      // (DRAFT ISSUES, APPROVED) carry pure white text; APPROVED also
+      // gets a white-circle checkmark appendage on the left, positioned
+      // absolutely so the label remains center-aligned.
       const STATE_LEVELS = {
         'BEFORE APPLICATION USE': { bg: '#F0F7F0', fg: '#666666' },
         'PREPARATION':            { bg: '#D5E8D5', fg: '#004F00' },
@@ -1333,11 +1455,25 @@ function renderCellContent(key, phase, systems, phaseIdx) {
         'APPROVED':               { bg: '#007F00', fg: '#FFFFFF' },
       }
       const level = STATE_LEVELS[phase.appState] || { bg: '#FFFFFF', fg: '#000000' }
+      const isApproved = phase.appState === 'APPROVED'
       return (
         <span
-          className="inline-flex items-center px-2 py-0.5 font-mono text-[10px] tracking-[0.1em]"
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md font-mono text-[10px] tracking-[0.1em]"
           style={{ backgroundColor: level.bg, color: level.fg }}
         >
+          {isApproved && (
+            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true">
+              <circle cx="8" cy="8" r="7" fill="white" />
+              <path
+                d="M5 8l2 2 4-4"
+                stroke="#007F00"
+                strokeWidth="1.8"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
           {phase.appState}
         </span>
       )
@@ -1378,15 +1514,19 @@ function renderCellContent(key, phase, systems, phaseIdx) {
       )
     }
     case 'actions':
-      // Primary content row. Number column kept distinctive (bp-dark-green
-      // font-black). Action text matches the unified body color/size; only
-      // the slight weight bump (font-medium) signals it as primary.
+      // Primary content row. Numbers sit in fixed-size dark-green circles
+      // with white text, vertically centered with their action text.
       return (
-        <ol className="space-y-1 pr-3">
+        <ol className="space-y-1.5 pr-3">
           {phase.actions.map((action, i) => (
-            <li key={i} className="grid grid-cols-[1.4em_1fr] gap-2 items-start text-[11px] text-black leading-snug font-medium tracking-tight">
-              <span className="text-bp-dark-green font-black text-[13px] leading-snug text-center">
-                {i + 1}
+            <li key={i} className="grid grid-cols-[22px_1fr] gap-2 items-center text-[11px] text-black leading-snug font-medium tracking-tight">
+              <span
+                className="w-[22px] h-[22px] rounded-full bg-bp-green text-white text-[11px] leading-none flex items-center justify-center"
+                style={{ fontFamily: '"Arial Black", Arial, Helvetica, sans-serif', fontWeight: 900 }}
+              >
+                <span style={{ transform: 'translate(-0.5px, -1px)', display: 'inline-block' }}>
+                  {i + 1}
+                </span>
               </span>
               <span>{action}</span>
             </li>

@@ -2,11 +2,27 @@ export const riskAssessment = {
   id: 'risk-assessment',
   title: 'Risk Assessment',
   subtitle: 'Pre-Well Risk Identification & Approval',
+  tagline: 'We rank every risk before the work starts.',
+  actionsLabel: 'Risk Engineer Actions',
+  actionsDescription: 'Journey of the Risk Engineer',
   primaryUser: 'riskEngineer',
   description:
     'Identifying, framing, scoring, and approving risks before well operations begin. Approval-gated — must be signed off before work proceeds.',
   sourceLabel: 'Informed synthesis',
-  sources: [],
+  sources: [
+    'Bowtie Field Guide (.pdf, 02/2021)',
+    'Risk Ranking Calibration Notes (.doc, 06/2021)',
+    'Onshore Analyst Workflow Survey (.pdf, 10/2021)',
+  ],
+  // Risk-score color hierarchy applied during pre-well assessment.
+  severityLevels: [
+    { color: '#0E6B2E', label: 'Dark Green', description: 'Risk fully mitigated — barriers in place and operationally effective. No further action required prior to spud.' },
+    { color: '#9DCB3D', label: 'Light Green', description: 'Risk reduced — barriers in place but residual exposure; monitor through execution.' },
+    { color: '#FFD400', label: 'Yellow', description: 'Risk to monitor — minor gap identified, longer-term remediation plan acceptable.' },
+    { color: '#F26B1D', label: 'Orange', description: 'Risk to address — significant gap identified, action plan and remediation required before spud.' },
+    { color: '#C8181C', label: 'Red', description: 'Unacceptable risk — barrier missing or critically impaired; assessment cannot be approved until escalated and resolved.' },
+    { color: '#A6A6A6', label: 'Grey', description: 'Not yet scored or pending input from supporting discipline.' },
+  ],
   systems: [
     { id: 'ra-tool', name: 'Risk Assessment Tool', description: 'Salesforce-based risk assessment platform' },
     { id: 'power-bi', name: 'Power BI', description: 'Risk dashboards and reporting' },

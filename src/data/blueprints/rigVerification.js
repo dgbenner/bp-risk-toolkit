@@ -14,6 +14,15 @@ export const rigVerification = {
     'Subin Nair — Rig Verification Developer, London, UK (2 interviews: 09/02/2021, 11/04/2021)',
     'Lynne Egwuekwe — UX Researcher, London, UK (1 interview: 09/23/2021 + secondary research documents)',
   ],
+  // Barrier scoring legend (Bowties PDF reference).
+  severityLevels: [
+    { color: '#0E6B2E', label: 'Dark Green', description: 'Barrier functional and effective, opportunities to improve performance and sustainability' },
+    { color: '#FFD400', label: 'Yellow', description: 'Minor Gaps Observed — Barrier partially in place (Minor Impairment), barrier effectiveness and sustainability can be strengthened by closing identified gaps' },
+    { color: '#F26B1D', label: 'Orange', description: 'Major Gaps Observed — Barrier partially in place (Major Impairment), barrier effectiveness and sustainability can be strengthened by closing identified gaps' },
+    { color: '#C8181C', label: 'Red', description: 'Significant Gaps Observed — Barrier not in place or not effective. The barrier will not prevent or mitigate an event as intended' },
+    { color: '#C4C4C4', label: 'Light Grey', description: 'Not yet verified' },
+    { color: 'transparent', borderColor: '#9CA3AF', label: 'No Color (Grey Border)', description: 'Not in RV Scope' },
+  ],
   systems: [
     { id: 'salesforce', name: 'Salesforce', description: 'Master controller — most RV functions, SF email alerts' },
     { id: 'rvrt', name: 'RVRT', description: 'Rig Verification Reporting Tool — offline-capable, browser-based field app' },

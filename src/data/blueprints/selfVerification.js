@@ -2,11 +2,27 @@ export const selfVerification = {
   id: 'self-verification',
   title: 'Self Verification',
   subtitle: 'Continuous Operational Safety Monitoring',
+  tagline: 'Every shift, we test that the safety barriers still work.',
+  actionsLabel: 'Well Site Leader Actions',
+  actionsDescription: 'Journey of the Well Site Leader',
   primaryUser: 'wsl',
   description:
     'Ongoing shift-based safety monitoring during live well operations. Unlike the other tools, Self Verification + Oversight runs as a continuous cycle rather than a linear process.',
   sourceLabel: 'Informed synthesis',
-  sources: [],
+  sources: [
+    'WSL Handover Observations (.pdf, 03/2021)',
+    'Tower Meeting Audit Notes (.doc, 07/2021)',
+    'SV&O Pilot Program Results (.pdf, 11/2021)',
+  ],
+  // Scoring hierarchy — covers six escalation levels for daily barrier checks.
+  severityLevels: [
+    { color: '#0E6B2E', label: 'Dark Green', description: 'Requirement was demonstrated and verified' },
+    { color: '#9DCB3D', label: 'Light Green', description: 'Requirement not met — gap identified and addressed immediately' },
+    { color: '#A6A6A6', label: 'Grey', description: 'If component never/not yet scored or has timed out' },
+    { color: '#FFD400', label: 'Yellow', description: 'Requirement not met — gap identified, potential longer-term barrier component failure & raise normal action' },
+    { color: '#F26B1D', label: 'Orange', description: 'Requirement not met — gap identified, potential near-term barrier component failure & raise high priority action' },
+    { color: '#C8181C', label: 'Red', description: 'Imminent operational safety issue — immediate action & notification required' },
+  ],
   systems: [
     { id: 'youreka', name: 'Youreka', description: 'Salesforce-based field inspection platform' },
     { id: 'svo-app', name: 'Self Verification + Oversight Checklist App', description: 'Mobile checklist for shift-based verification' },

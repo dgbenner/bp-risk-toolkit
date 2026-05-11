@@ -2,6 +2,12 @@ import rvManager from '../assets/headshots/RV-Manager.png'
 import rvVerifier from '../assets/headshots/RV-Verifier.png'
 import wellSuper from '../assets/headshots/WellSuper.png'
 import wellCrew from '../assets/headshots/Well-Crew.png'
+import stewart from '../assets/headshots/Stewart.png'
+import kenneth from '../assets/headshots/Kenneth.png'
+import ewandro from '../assets/headshots/Ewandro.png'
+import janeth from '../assets/headshots/Janeth.png'
+import rvTeamPhoto from '../assets/headshots/RVTeam.png'
+import wellCrewGroup from '../assets/headshots/WellCrewGroup.png'
 
 export const ORG_BP = 'bp'
 export const ORG_VALARIS = 'valaris'
@@ -33,25 +39,13 @@ export const roles = {
       'Boards platforms to inspect equipment and safety barriers. Works from checklists tied to bowties. Produces the report of findings.',
     blueprints: [BP_RV, BP_RA],
   },
-  julian: {
-    id: 'julian',
-    name: 'Julian',
-    title: 'Contracted Rig Verifier',
-    org: ORG_BP,
-    avatar: rvVerifier,
-    personName: 'Julian',
-    role: 'Rig Verifier',
-    description:
-      'Contracted rig verifier supplementing the core team during peak verification windows.',
-    blueprints: [],
-  },
   rvManager: {
     id: 'rvManager',
     name: 'RV Manager',
     title: 'BP Employee',
     org: ORG_BP,
     avatar: rvManager,
-    personName: null,
+    personName: 'Parham',
     role: 'RV Manager',
     description:
       "Single point of oversight for all verification activity globally. Reviews every ToR and every report before it's issued. One person holds this role.",
@@ -62,8 +56,8 @@ export const roles = {
     name: 'RV Team',
     title: '2–6 Verifiers',
     org: ORG_BP,
-    avatar: null,
-    personName: null,
+    avatar: rvTeamPhoto,
+    personName: 'BP Employees',
     role: 'RV Team',
     description:
       'Subset of 9 verifiers selected per job based on rig type and expertise needed. Work as a unit on the rig. Collaborate on findings.',
@@ -71,11 +65,11 @@ export const roles = {
   },
   hasan: {
     id: 'hasan',
-    name: 'Hasan',
+    name: 'Laurent',
     title: 'Well Superintendent',
     org: ORG_VALARIS,
     avatar: wellSuper,
-    personName: 'Hasan',
+    personName: 'Laurent',
     role: 'Well Superintendent',
     description:
       'The Responsible Person. Signs off on the ToR, receives the final report, accountable for closing findings. The person BP calls.',
@@ -83,11 +77,11 @@ export const roles = {
   },
   janos: {
     id: 'janos',
-    name: 'Janos',
+    name: 'Valaris Employees',
     title: 'Well Delivery Team',
     org: ORG_VALARIS,
     avatar: wellCrew,
-    personName: 'Janos',
+    personName: 'Valaris Employees',
     role: 'Well Delivery Team',
     description:
       'Receives verification findings. Responsible for resolving them after the RV team leaves. Lives with the consequences.',
@@ -98,8 +92,8 @@ export const roles = {
     name: 'Well Site Manager',
     title: 'Offshore Manager',
     org: ORG_VALARIS,
-    avatar: null,
-    personName: null,
+    avatar: kenneth,
+    personName: 'Kenneth',
     role: 'Well Site Manager',
     description:
       "On the rig during verification. Operational counterpart to BP's inspection team.",
@@ -110,8 +104,8 @@ export const roles = {
     name: 'Well Crew',
     title: 'Rig Crew',
     org: ORG_VALARIS,
-    avatar: null,
-    personName: null,
+    avatar: wellCrewGroup,
+    personName: 'Valaris Employees',
     role: 'Well Crew',
     description:
       'Roughnecks, derrickmen, drillers, toolpushers. Not application users. Directly affected by findings. The people the system exists to protect.',
@@ -122,8 +116,8 @@ export const roles = {
     name: 'Risk Engineer',
     title: 'BP Risk Engineer',
     org: ORG_BP,
-    avatar: null,
-    personName: null,
+    avatar: stewart,
+    personName: 'Stewart',
     role: 'Risk Engineer',
     description:
       'Onshore analyst. Evaluates and ranks risks using bowtie methodology. Maintains the Risk Register. Feeds Power BI dashboards for leadership.',
@@ -134,8 +128,8 @@ export const roles = {
     name: 'Well Site Leader',
     title: 'WSL (Offshore)',
     org: ORG_VALARIS,
-    avatar: null,
-    personName: null,
+    avatar: janeth,
+    personName: 'Janeth',
     role: 'Well Site Leader (WSL)',
     description:
       'Runs the rig day to day. Manages crew, runs shift handovers, makes real-time operational decisions. Two per rig, back-to-back rotation.',
@@ -146,8 +140,8 @@ export const roles = {
     name: 'Regional Risk Engineer',
     title: 'BP Regional Risk Engineer',
     org: ORG_BP,
-    avatar: null,
-    personName: null,
+    avatar: ewandro,
+    personName: 'Ewandro',
     role: 'Regional Risk Engineer',
     description:
       "Owns a geographic region's risk profile. Reviews SV&O outputs and escalations. Reports to VP Wells.",
