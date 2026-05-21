@@ -112,7 +112,7 @@ const TAIL_DISC_SCALE = 0.6
 
 // Helicopter timing — birds are at 100% by cycle 10, then the heli enters.
 // Lands at cycle 38 (2s before polygon rendering completes at 40).
-const HELI_FLY_IN_START     = 6            // enters 4s earlier
+const HELI_FLY_IN_START     = 3.5          // first visible at cycle 3.5s
 const HELI_FADE_IN_END      = 9            // 3s fade in
 const HELI_DESCENT_DURATION = 31           // lands at cycle 37
 const HELI_FADE_OUT_START   = 65           // begins fade-out when deconstruction starts
@@ -1418,8 +1418,8 @@ export default function Rig3D({ className = '' }) {
   const [mountScene, setMountScene] = useState(false)
   const [mountHeli, setMountHeli] = useState(false)
   useEffect(() => {
-    const sceneId = setTimeout(() => setMountScene(true), 1200)
-    const heliId = setTimeout(() => setMountHeli(true), 2000)
+    const sceneId = setTimeout(() => setMountScene(true), 500)
+    const heliId = setTimeout(() => setMountHeli(true), 500)
     return () => {
       clearTimeout(sceneId)
       clearTimeout(heliId)
